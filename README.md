@@ -4,7 +4,22 @@ Student Challenge 2025-2026 (Benchmarking AI Factories on MeluXina supercomputer
 
 # Instructions
 
-Run `source env.sh` in the root directory of this repository (where this README is) to set Slurm account names and some base variables that the scripts build on. It will also create a reservation on a GPU node with salloc so you can use Python. Then `module load Python` and `pip install -r requirements.txt`
+Run `source env.sh` in the root directory of this repository (where this README is) to set Slurm account names and some base variables that the scripts build on. It will also create a reservation on a GPU node with salloc so you can use Python. Then `module load Python` and `pip install -r requirements.txt`. You also need to pul a vLLM container into the `utils/sif-images` directory.
+
+```
+cd utils/sif-images
+module load Apptainer/1.3.1-GCCcore-12.3.0
+apptainer pull docker://vllm/vllm-openai:latest
+```
+
+Then the repo can be used currently like so:
+
+```
+python cli.py
+> start vllm
+> check vllm
+> bench vllm
+```
 
 # Structure
 
