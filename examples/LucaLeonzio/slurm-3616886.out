@@ -1,0 +1,20 @@
+Date              = Thu  2 Oct 09:21:41 CEST 2025
+Hostname          = mel2153
+Working Directory = /project/home/p200981/team7/LucaLeonzio
+INFO:    Converting OCI blobs to SIF format
+INFO:    Starting build...
+Copying blob sha256:36591e7dd4a3b31ff1cd7f5a4390675e59dbc43d9bf8db798b859ee8aa74d57e
+Copying blob sha256:66ef1ccd9b48e112f7249a11216783d6b0c6478e116701d9a48ad3d31bb92452
+Copying blob sha256:804f1b698a9fbe0a636df637f6f858ea8d52c8021e3df3b21565b752142287e6
+Copying blob sha256:953cdd4133718b72c5d0a78e754c1405c02510fdb5237265f7955863f1757f83
+Copying config sha256:bd935981a575c69cffc9628bc2cacf449f6f5f5036a0a2d43af030331a12b2bf
+Writing manifest to image destination
+2025/10/02 09:22:49  info unpack layer: sha256:953cdd4133718b72c5d0a78e754c1405c02510fdb5237265f7955863f1757f83
+2025/10/02 09:22:49  warn xattr{etc/gshadow} ignoring ENOTSUP on setxattr "user.rootlesscontainers"
+2025/10/02 09:22:49  warn xattr{/tmp/build-temp-2393430704/rootfs/etc/gshadow} destination filesystem does not support xattrs, further warnings will be suppressed
+2025/10/02 09:22:49  info unpack layer: sha256:66ef1ccd9b48e112f7249a11216783d6b0c6478e116701d9a48ad3d31bb92452
+2025/10/02 09:22:50  warn xattr{var/log/apt/term.log} ignoring ENOTSUP on setxattr "user.rootlesscontainers"
+2025/10/02 09:22:50  warn xattr{/tmp/build-temp-2393430704/rootfs/var/log/apt/term.log} destination filesystem does not support xattrs, further warnings will be suppressed
+2025/10/02 09:22:50  info unpack layer: sha256:804f1b698a9fbe0a636df637f6f858ea8d52c8021e3df3b21565b752142287e6
+2025/10/02 09:22:50  info unpack layer: sha256:36591e7dd4a3b31ff1cd7f5a4390675e59dbc43d9bf8db798b859ee8aa74d57e
+INFO:    Creating SIF file...
