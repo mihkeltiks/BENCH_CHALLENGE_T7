@@ -1,15 +1,11 @@
-utils/sif-images/*
+utils/sif-images/grafana_db  
+utils/sif-images/grafana_latest.sif  
+utils/sif-images/prometheus_dir  
+utils/sif-images/prometheus_latest.sif  
+utils/sif-images/vllm-openai_latest.sif
+
 utils/caches/*
 src/logs
-
-
-
-
-
-
-
-
-
 
 
 #------------------------------- default vars----
