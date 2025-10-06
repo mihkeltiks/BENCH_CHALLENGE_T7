@@ -20,7 +20,6 @@ export PMIX_MCA_psec=native
 # Choose a directory for the cache 
 export LOCAL_HF_CACHE=$REPO_SOURCE/utils/caches
 mkdir -p ${LOCAL_HF_CACHE}
-export HF_TOKEN=""
 # Make sure the path to the SIF image is correct
 # Here, the SIF image is in the same directory as this script
 export SIF_IMAGE=$REPO_SOURCE/utils/sif-images/vllm-openai_latest.sif

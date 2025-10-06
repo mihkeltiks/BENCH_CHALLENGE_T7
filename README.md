@@ -4,7 +4,7 @@ Student Challenge 2025-2026 (Benchmarking AI Factories on MeluXina supercomputer
 
 # Instructions
 
-Run `source env.sh` in the root directory of this repository (where this README is) to set Slurm account names and some base variables that the scripts build on. It will also create a reservation on a GPU node with salloc so you can use Python. Then `module load Python` and `pip install -r requirements.txt`. You also need to pul a vLLM container into the `utils/sif-images` directory.
+Run `source env.sh` in the root directory of this repository (where this README is) to set Slurm account names and some base variables that the scripts build on. It will also create a reservation on a GPU node with salloc so you can use Python. Then `module load Python` and `pip install -r requirements.txt`. You also need to pull all the related containers into the `utils/sif-images` directory. There is a script in that directory to do that. I initialize `HF\_TOKEN` in my `.bashrc`, you should likely do that as well for simplicity.
 
 ```
 cd utils/sif-images
