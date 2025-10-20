@@ -1,4 +1,4 @@
-#utils/grafana_db  
+utils/grafana_db  
 utils/prometheus_dir  
 utils/sif-images/grafana_latest.sif  
 utils/sif-images/prometheus_latest.sif  
