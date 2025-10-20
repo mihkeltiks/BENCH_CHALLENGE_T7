@@ -4,5 +4,5 @@ apptainer pull docker://vllm/vllm-openai:latest
 apptainer pull docker://prom/prometheus:latest
 apptainer pull docker://grafana/grafana:latest
 
-mkdir grafana_db
-mkdir prometheus_dir
+mkdir ../grafana_db
+mkdir ../prometheus_dir

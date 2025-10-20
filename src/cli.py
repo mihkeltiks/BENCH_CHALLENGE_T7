@@ -1,7 +1,7 @@
 import cmd
 import sys
-from vllm_test import VLLMManager
-from grafana import GrafanaManager
+from vllm_server import VLLMServer
+from monitor_server import MonitorServer
 
 class CLI(cmd.Cmd):
     """
@@ -12,66 +12,54 @@ class CLI(cmd.Cmd):
 
     def __init__(self):
         super().__init__()
-        self.vllm_manager = VLLMManager()
-        self.grafana_manager = GrafanaManager()
+        self.vllm_server = VLLMServer()
+        self.monitor_server = MonitorServer()
 
     def do_start(self, arg):
         """
         Starts the service using the sbatch script.
-        Usage: start [vllm|grafana|prometheus]
+        Usage: start [vllm|monitors]
         """
         if arg.lower() == 'vllm':
-            if self.vllm_manager.running:
-                print(f"A VLLM job ({self.vllm_manager.job_id}) is already being managed.")
-                print("Please 'exit' and restart the CLI or `clean vllm` to manage a new job.")
+            if self.vllm_server.running:
+                print(f"A VLLM job ({self.vllm_server.job_id}) is already being managed.")
                 return
-            job_id = self.vllm_manager.start_vllm_job()
+            job_id = self.vllm_server.start_job()
             if job_id:
-                self.vllm_manager.job_id = job_id
-                self.vllm_manager.running = 1
-        elif arg.lower() == 'prometheus':
-            print("Prometheus integration is not implemented yet.")
-        elif arg.lower() == 'grafana':
-            if self.grafana_manager.running:
-                print(f"A Grafana job ({self.grafana_manager.job_id}) is already being managed.")
-                print("Please 'exit' and restart the CLI or `clean grafana` to manage a new job.")
+                self.vllm_server.running = 1
+        elif arg.lower() == 'monitors':
+            if self.monitor_server.running:
+                print(f"A monitors job ({self.monitor_server.job_id}) is already being managed.")
                 return
-            job_id = self.grafana_manager.start_grafana()
+            # Use the generic start_job() method
+            job_id = self.monitor_server.start_job()
             if job_id:
-                self.grafana_manager.job_id = job_id
-                self.grafana_manager.running = 1
+                self.monitor_server.running = 1
         else:
             print("Invalid command. Usage: start vllm")
 
     def do_check(self, arg):
         """
         Checks the status of the job and retrieves its IP address.
-        Usage: check [vllm|grafana|prometheus]
+        Usage: check [vllm|monitors]
         """
         if arg.lower() == 'vllm':
-            job_id, ip_address, vllm_ready = self.vllm_manager.check_vllm_status()
-            if job_id:
-                self.vllm_manager.job_id = job_id
+            job_id, ip_address, vllm_ready = self.vllm_server.check_status()
+            
             if ip_address:
-                self.vllm_manager.ip_address = ip_address
-                self.vllm_manager.running = 1
+                print("Updating Monitors batch script with VLLM IP address...")
+                self.monitor_server.update_vllm_target_in_script(self.vllm_server.ip_address)
                 print("-" * 20)
-                print(f"State updated: Job ID = {self.vllm_manager.job_id}, IP = {self.vllm_manager.ip_address}")
+                print(f"State updated: Job ID = {self.vllm_server.job_id}, IP = {self.vllm_server.ip_address}")
                 print("-" * 20)
-            if vllm_ready:
-                self.vllm_manager.vllm_ready = True
-        elif arg.lower() == 'grafana':
-            job_id, ip_address, grafana_ready = self.grafana_manager.check_grafana_status()
-            if job_id:
-                self.grafana_manager.job_id = job_id
+
+        elif arg.lower() == 'monitors':
+            job_id, ip_address, monitor_ready = self.monitor_server.check_status()
+            
             if ip_address:
-                self.grafana_manager.ip_address = ip_address
-                self.grafana_manager.running = 1
                 print("-" * 20)
-                print(f"State updated: Job ID = {self.grafana_manager.job_id}, IP = {self.grafana_manager.ip_address}")
+                print(f"State updated: Job ID = {self.monitor_server.job_id}, IP = {self.monitor_server.ip_address}")
                 print("-" * 20)
-            if grafana_ready:
-                self.grafana_manager.grafana_ready = True
         else:
             print("Invalid command. Usage: check vllm")
 
@@ -82,10 +70,10 @@ class CLI(cmd.Cmd):
         Usage: bench vllm
         """
         if arg.lower() == 'vllm':
-            if self.vllm_manager.ip_address and self.vllm_manager.vllm_ready:
-                self.vllm_manager.benchmark_vllm()
+            if self.vllm_server.ip_address and self.vllm_server.ready:
+                self.vllm_server.benchmark_vllm()
             else:
-                print("IP address is unknown. Please run 'check vllm' successfully first.")
+                print("IP address is unknown or server is not ready. Please run 'check vllm' successfully first.")
         else:
             print("Invalid command. Usage: bench vllm")
 
@@ -93,15 +81,13 @@ class CLI(cmd.Cmd):
         """
         Stops all started servers and deletes the logs.
         """
-        if self.vllm_manager.running:
-            if self.vllm_manager.job_id:
-                self.vllm_manager.stop_vllm_job(self.vllm_manager.job_id)
-            self.vllm_manager.remove_vllm_logs()
+        if self.vllm_server.running:
+            self.vllm_server.stop_job()
+            self.vllm_server.remove_logs()
     
-        if self.grafana_manager.running:
-            if self.grafana_manager.job_id:
-                self.grafana_manager.stop_grafana_job(self.grafana_manager.job_id)
-            self.grafana_manager.remove_grafana_logs()
+        if self.monitor_server.running:
+            self.monitor_server.stop_job()
+            self.monitor_server.remove_logs()
 
 
     def do_exit(self, arg):

@@ -6,20 +6,29 @@ Student Challenge 2025-2026 (Benchmarking AI Factories on MeluXina supercomputer
 
 Run `source env.sh` in the root directory of this repository (where this README is) to set Slurm account names and some base variables that the scripts build on. It will also create a reservation on a GPU node with salloc so you can use Python. Then `module load Python` and `pip install -r requirements.txt`. You also need to pull all the related containers into the `utils/sif-images` directory. There is a script in that directory to do that. I initialize `HF\_TOKEN` in my `.bashrc`, you should likely do that as well for simplicity.
 
+
+Setup works as below:
+
 ```
+source load_modules.sh
 cd utils/sif-images
-module load Apptainer/1.3.1-GCCcore-12.3.0
-apptainer pull docker://vllm/vllm-openai:latest
+./pull_images.sh
+cd ../../
 ```
 
 Then the repo can be used currently like so:
 
 ```
+cd src
 python cli.py
 > start vllm
-> check vllm
+> check vllm # NOTE read below
+> start monitors
+> check monitors
 > bench vllm
 ```
+
+`start` commands launch Slurm scripts that can be found in the directory `batch_scripts`. The line `check vllm` updates the prometheus configuration yaml with the IP of the vLLM master node. This should be done before starting the monitors so that the results from teh vLLM benchmark can be visualized. `check monitors` will print the necessary tunnels that need to be opened so that Grafana and Prometheus can be openend in localhost. `utils/sif-images/grafana-db` should make it so that the dashboard and connection are pre-configured, with some previous information. However, this directory can be deleted and the Grafana-Prometheus connection can be configured as described [here](https://docs.vllm.ai/en/v0.7.2/getting_started/examples/prometheus_grafana.html). 
 
 # Structure
 
