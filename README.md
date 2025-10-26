@@ -27,7 +27,7 @@ python cli.py
 > check monitors
 > bench vllm
 ```
-`start` commands launch Slurm scripts that can be found in the directory `batch_scripts`. The line `check vllm` updates the prometheus configuration yaml with the IP of the vLLM master node. This should be done before starting the monitors so that the results from teh vLLM benchmark can be visualized. `check monitors` will print the necessary tunnels that need to be opened so that Grafana and Prometheus can be openend in localhost. The Grafana-Prometheus connection can be configured as described [here](https://docs.vllm.ai/en/v0.7.2/getting_started/examples/prometheus_grafana.html). 
+`start` commands launch Slurm scripts that can be found in the directory `batch_scripts`. The line `check vllm` updates the prometheus configuration yaml with the IP of the vLLM master node. This should be done before starting the monitors so that the results from the vLLM benchmark can be visualized. `check monitors` will print the necessary tunnels that need to be opened so that Grafana and Prometheus can be openend in localhost. The Grafana-Prometheus connection can be configured as described [here](https://docs.vllm.ai/en/v0.7.2/getting_started/examples/prometheus_grafana.html). 
 
 # Structure
 
