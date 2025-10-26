@@ -1,0 +1,90 @@
+@startuml
+
+' Style configuration
+skinparam classAttributeIconSize 0
+skinparam class {
+    BackgroundColor<<Abstract>> LightGray
+    BorderColor Black
+    ArrowColor Black
+}
+
+' Abstract base class
+abstract class SlurmServer {
+    - job_id: str
+    - ip_address: str
+    - running: int
+    - ready: bool
+    - job_name_prefix: str
+    - script_path: str
+    - log_dir: str
+    - log_out_file: str
+    - log_err_file: str
+    - user: str
+    __
+    + __init__(job_name, script_path, log_dir, log_out_file, log_err_file)
+    + start_job(): str
+    + stop_job(): void
+    + remove_logs(): void
+    + check_status(): tuple
+    - _find_job_id(): str
+    - _find_ip_address(): str
+    + {abstract} _check_readiness(): bool
+}
+
+' Concrete implementations
+class VLLMServer {
+    + __init__()
+    + _check_readiness(): bool
+    + benchmark_vllm(port, num_requests): void
+}
+
+class MonitorServer {
+    + __init__()
+    + _check_readiness(): bool
+    + update_vllm_target_in_script(vllm_ip): void
+}
+
+class ChromaServer {
+    + __init__()
+    + _check_readiness(): bool
+    + benchmark_chroma(port, num_vectors, num_queries, dimension, concurrent_queries): void
+}
+
+' CLI class
+class CLI {
+    - vllm_server: VLLMServer
+    - monitor_server: MonitorServer
+    - chroma_server: ChromaServer
+    __
+    + do_start(arg): void
+    + do_check(arg): void
+    + do_bench(arg): void
+    + do_clean(arg): void
+    + do_exit(arg): bool
+    + do_EOF(arg): bool
+}
+
+' Relationships
+SlurmServer <|-- VLLMServer
+SlurmServer <|-- MonitorServer
+SlurmServer <|-- ChromaServer
+
+CLI o-- VLLMServer
+CLI o-- MonitorServer
+CLI o-- ChromaServer
+
+' Notes
+note right of SlurmServer
+    Template Method Pattern:
+    check_status() orchestrates
+    the workflow and calls the
+    abstract _check_readiness()
+end note
+
+note bottom of CLI
+    Command Pattern:
+    do_* methods encapsulate
+    operations as commands
+end note
+
+@enduml
