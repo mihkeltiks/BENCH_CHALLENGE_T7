@@ -1,6 +1,5 @@
 # Test Suite
 
-This directory contains unit tests for the BENCH_CHALLENGE_T7 project.
 
 ## Running Tests
 

@@ -1,6 +1,34 @@
 # BENCH_CHALLENGE
 Student Challenge 2025-2026 (Benchmarking AI Factories on MeluXina supercomputer)
 
+## Architecture
+
+The implementation follows a two-layer architecture:
+
+```
+┌───────────────────────────────────────────────────┐
+│  User Interface (cli.py)                          │
+│  Commands: start/check/bench chroma/vllm/monitors │
+└─────────────────┬─────────────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────┐
+│  Python Management (service_server.py)      │
+│  - service: monitors/vllm/chroma            │
+│  - Inherits from SlurmServer                │
+│  - Manages SLURM job lifecycle              │
+│  - Implements benchmarking logic            │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────┐
+│  SLURM Batch Script (start_service.sh)      │
+│  - service: monitors/vllm/chroma            │
+│  - Resource allocation                      │
+│  - Container management (Apptainer)         │
+│  - Server startup                           │
+└─────────────────────────────────────────────┘
+```
+
+
 
 # Instructions
 
