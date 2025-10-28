@@ -1,0 +1,84 @@
+
+Exiting CLI...
+Goodbye!
+SSH TUNNEL (Execute on your local machine): ssh -p 8822 luca@login.lxp.lu -NL 9090:192.168.1.100:9090
+SSH TUNNEL (Execute on your local machine): ssh -p 8822 luca@login.lxp.lu -NL 3000:192.168.1.100:3000
+
+[TEST] Testing FAILURE scenario: monitor script file not found
+Attempting to update VLLM IP in: ../batch_scripts/start_monitors.sh
+Error: Monitors script not found at ../batch_scripts/start_monitors.sh
+[TEST] ✓ Failure scenario handled correctly
+
+[TEST] Testing FAILURE scenario: VLLM_IP_ADDRESS line not found in script
+Attempting to update VLLM IP in: ../batch_scripts/start_monitors.sh
+Warning: Could not find the 'export VLLM_IP_ADDRESS=' line in the script.
+[TEST] ✓ Failure scenario handled correctly
+Attempting to update VLLM IP in: ../batch_scripts/start_monitors.sh
+  -> Replaced VLLM IP with: 192.168.1.200
+Success! Prometheus batch script updated with VLLM target IP: 192.168.1.200
+
+[TEST] Testing FAILURE scenario: IP address not found in log file
+Polling log file for IP address: /tmp/logs/test.out
+IP not found yet. Retrying in 3 seconds... (Attempt 1/5)
+IP not found yet. Retrying in 3 seconds... (Attempt 2/5)
+IP not found yet. Retrying in 3 seconds... (Attempt 3/5)
+IP not found yet. Retrying in 3 seconds... (Attempt 4/5)
+IP not found yet. Retrying in 3 seconds... (Attempt 5/5)
+Could not find IP address in the log file after several attempts.
+[TEST] ✓ Failure scenario handled correctly
+Polling log file for IP address: /tmp/logs/test.out
+Success! IP Address found: 192.168.1.100
+
+[TEST] Testing FAILURE scenario: job ID not found in squeue
+Checking test job status via squeue...
+No active job found with name starting with 'test'.
+[TEST] ✓ Failure scenario handled correctly
+Checking test job status via squeue...
+Active test job found with ID: 12345.
+Removing test logs...
+
+[TEST] Testing FAILURE scenario: sbatch command not found
+Starting test service via sbatch...
+Error starting test job: sbatch not found
+[TEST] ✓ Failure scenario handled correctly
+Starting test service via sbatch...
+test script submitted. Job ID: 12345
+No test job ID provided to stop.
+Stopping test job ID: 12345
+Job 12345 cancelled successfully.
+
+[TEST] Testing FAILURE scenario: benchmark without IP address
+Cannot run benchmark without an IP address.
+[TEST] ✓ Failure scenario handled correctly
+
+[TEST] Testing FAILURE scenario: HTTP 500 error during benchmark
+http://192.168.1.100:8000/v1/chat/completions
+Starting benchmark with 1 requests to http://192.168.1.100:8000/v1/chat/completions...
+Request 1: Failed (Status 500) - Internal Server Error
+------------------------------
+Benchmark Complete: 0 / 1 requests were successful.
+------------------------------
+[TEST] ✓ Failure scenario handled correctly
+http://192.168.1.100:8000/v1/chat/completions
+Starting benchmark with 2 requests to http://192.168.1.100:8000/v1/chat/completions...
+Request 1: Success (Status 200)
+Request 2: Success (Status 200)
+------------------------------
+Benchmark Complete: 2 / 2 requests were successful.
+------------------------------
+
+[TEST] Testing FAILURE scenario: VLLM server not ready after retries
+Checking if VLLM server is ready, this can take a while.
+Server not ready yet, retrying in 10 seconds... (Attempt 1/5)
+Server not ready yet, retrying in 10 seconds... (Attempt 2/5)
+Server not ready yet, retrying in 10 seconds... (Attempt 3/5)
+Server not ready yet, retrying in 10 seconds... (Attempt 4/5)
+Server not ready yet, retrying in 10 seconds... (Attempt 5/5)
+VLLM server did not become ready.
+[TEST] ✓ Failure scenario handled correctly
+Checking if VLLM server is ready, this can take a while.
+vLLM server is ready to take requests
+
+Ran 31 tests in 0.012s
+
+OK
