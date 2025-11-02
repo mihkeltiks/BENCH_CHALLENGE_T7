@@ -3,7 +3,7 @@
 #SBATCH -p gpu
 #SBATCH -t 2:0:0
 #SBATCH -N 1
-#SBATCH -J lustreIO
+#SBATCH -J IO500
 #SBATCH --ntasks-per-node=16
 #SBATCH --error=logs/IO500/IO500.err
 #SBATCH --output=logs/IO500/IO500.out

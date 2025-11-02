@@ -89,8 +89,10 @@ class LustreServer(SlurmServer):
             )
             if "RUNNING" in job_running.stdout:
                 print(f"IO500 benchmark is still RUNNING with JOBID: {self.bench_task}")
+                return False
             if "PENDING" in job_running.stdout:
                 print(f"IO500 benchmark is still PENDING with JOBID: {self.bench_task}")
+                return False
             if job_running.returncode != 0 or self.bench_task not in job_running.stdout:
                 print(f"IO500 benchmark has COMPLETED. Result:")
                 try:
@@ -99,8 +101,7 @@ class LustreServer(SlurmServer):
                 except FileNotFoundError:
                     print("Result file not found.")
                 self.bench_task = None
-            return True
-        return False
+        return True
 
     def stop_job(self):
         """

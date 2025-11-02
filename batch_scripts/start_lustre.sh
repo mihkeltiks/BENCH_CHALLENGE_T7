@@ -13,6 +13,8 @@ module --force purge
 module load env/release/2023.1
 module load Apptainer/1.3.1-GCCcore-12.3.0 Python
 
+pip install -r $REPO_SOURCE/requirements.txt
+
 set -x
 
 # Fix pmix error (munge)
@@ -42,4 +44,4 @@ ln -s $LUSTRE_DIR $REPO_SOURCE/utils/lustre_test_dir
 
 ## Start scraping lustre info of the given directory
 
-python $REPO_SOURCE/src/lustre_scraper.py --lustre_dir ${LUSTRE_DIR}
+python $REPO_SOURCE/src/lustre_scraper.py --lustre-dir ${LUSTRE_DIR}
