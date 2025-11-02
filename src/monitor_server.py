@@ -62,3 +62,40 @@ class MonitorServer(SlurmServer):
                 print("Warning: Could not find the 'export VLLM_IP_ADDRESS=' line in the script.")
         except Exception as e:
             print(f"An error occurred while updating the Prometheus script: {e}")
+
+    def update_lustreIO_target_in_script(self, monitor_ip: str):
+        """
+        Configure the Lustre Server to send metrics to the specified monitor.
+        """
+        script_path = self.script_path
+        print(f"Attempting to update Monitor IP in: {script_path}")
+
+        if not os.path.exists(script_path):
+            print(f"Error: Lustre script not found at {script_path}")
+            return
+        
+        try:
+            with open(script_path, 'r') as f:
+                lines = f.readlines()
+            
+            updated_lines = []
+            updated = False
+            target_line_prefix = 'export MONITOR_IP_ADDRESS="'
+
+            for line in lines:
+                if line.strip().startswith(target_line_prefix):
+                    new_line = f'export MONITOR_IP_ADDRESS="{monitor_ip}" # Updated by CLI\n'
+                    updated_lines.append(new_line)
+                    updated = True
+                    print(f"  -> Replaced Monitor IP with: {monitor_ip}")
+                else:
+                    updated_lines.append(line)
+
+            if updated:
+                with open(script_path, 'w') as f:
+                    f.writelines(updated_lines)
+                print(f"Success! Lustre batch script updated with Monitor IP: {monitor_ip}")
+            else:
+                print("No Monitor IP line found to update in the script.")
+        except Exception as e:
+            print(f"Error updating Lustre script: {e}")

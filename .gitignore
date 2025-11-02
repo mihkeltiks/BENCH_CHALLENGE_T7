@@ -3,6 +3,9 @@ utils/prometheus_dir
 utils/sif-images/grafana_latest.sif  
 utils/sif-images/prometheus_latest.sif  
 utils/sif-images/vllm-openai_latest.sif
+utils/sif-images/chroma_latest.sif
+utils/lustre_test_dir
+utils/io500
 
 utils/caches/*
 src/logs
