@@ -26,6 +26,7 @@ class LustreServer(SlurmServer):
         """
         Starts the sbatch script and returns the job ID.
         """
+        # Start the sbatch job
         print(f"Starting {self.job_name_prefix} service via sbatch...")
         try:
             cmd = ["sbatch", self.script_path]
@@ -56,6 +57,55 @@ class LustreServer(SlurmServer):
 
     def benchmark_lustre(self):
         # ToDo Run IO 500 benchmark against the "lustre server"
+        script = os.getenv('REPO_SOURCE') + "/batch_scripts/bench_IO500.sh"
+        # prompt the user for custom ini file
+        ini_file = input("Enter the path to the custom ini file (or press Enter to use default): ").strip()
+        if ini_file:
+            self.script_path = ini_file
+            # Validate the provided ini file path
+            if not os.path.isfile(self.script_path):
+                print(f"Error: The specified ini file '{self.script_path}' does not exist.")
+                return None
+            # update ini_file variable in bench_IO500.sh
+            try:
+                with open("../batch_scripts/bench_IO500.sh", "r") as file:
+                    lines = file.readlines()
+                with open("../batch_scripts/bench_IO500.sh", "w") as file:
+                    for line in lines:
+                        if line.startswith("ini_file="):
+                            file.write(f'ini_file="{self.script_path}"\n')
+                        else:
+                            file.write(line)
+                print(f"Updated ini_file in bench_IO500.sh to '{self.script_path}'")
+            except Exception as e:
+                print(f"Error updating bench_IO500.sh: {e}")
+                return None
+        # prompt the user for number of processes
+        num_procs = input("Enter the number of processes to use (or press Enter to use default 16): ").strip()
+        nodecount = 1
+        if not num_procs.isdigit():
+            num_procs = "16"
+        else:
+            num_procs_int = int(num_procs)
+            if num_procs_int > 16:
+                nodecount = (num_procs_int + 15) // 16
+        # update num_procs variable in bench_IO500.sh
+        try:
+            with open("../batch_scripts/bench_IO500.sh", "r") as file:
+                lines = file.readlines()
+            with open("../batch_scripts/bench_IO500.sh", "w") as file:
+                for line in lines:
+                    if line.startswith("num_procs="):
+                        file.write(f'num_procs={num_procs}\n')
+                    elif line.startswith("#SBATCH -N"):
+                        file.write(f"#SBATCH -N {nodecount}\n")
+                    else:
+                        file.write(line)
+            print(f"Updated num_procs in bench_IO500.sh to '{num_procs}'")
+        except Exception as e:
+            print(f"Error updating bench_IO500.sh: {e}")
+            return None
+        # start the benchmark
         print("Starting IO500 benchmark...")
         # print("This may take a while...")
         # result = subprocess.run(["srun","-n 4","../utils/io500/io500", "io500.ini"], check=True, capture_output=True, text=True)
@@ -68,7 +118,7 @@ class LustreServer(SlurmServer):
         #         preexec_fn=os.setpgrp
         #     )
         run = subprocess.run(
-            ["sbatch", "../batch_scripts/bench_IO500.sh"],
+            ["sbatch", script],
             capture_output=True,
             text=True,
             check=True
@@ -114,13 +164,14 @@ class LustreServer(SlurmServer):
         
         print(f"Stopping {self.job_name_prefix} job ID: {self.job_id}")
         try:
+            if self.bench_task is not None:
+                print(f"Cancelling benchmark job ID: {self.bench_task}")
+                subprocess.run(["scancel", str(self.bench_task)], check=True, capture_output=True)
+                self.bench_task = None
             subprocess.run(["scancel", self.job_id], check=True, capture_output=True)
             print(f"Job {self.job_id} cancelled successfully.")
             self.running = 0
             self.job_id = None
-            if self.bench_task:
-                subprocess.run(["scancel", str(self.bench_task)], check=True, capture_output=True)
-                self.bench_task = None
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Error stopping job {self.job_id}: {e}")
         # Clean up the Lustre directory
