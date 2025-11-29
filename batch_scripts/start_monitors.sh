@@ -15,6 +15,8 @@ module load env/release/2023.1
 module load Apptainer/1.3.1-GCCcore-12.3.0
 
 set -x
+# Log SLURM job ID for tracking
+echo "SLURM_JOB_ID: ${SLURM_JOB_ID}"
 # Make sure the path to the SIF image is correct
 # Here, the SIF image is in the same directory as this script
 export GRAFANA_IMAGE=$REPO_SOURCE/utils/sif-images/grafana_latest.sif
@@ -35,7 +37,7 @@ export PROMETHEUS_DIR=${REPO_SOURCE}/utils/prometheus_dir
 export APPTAINER_ARGS="-B ${PROMETHEUS_DIR}:/prometheus -B ${PROMETHEUS_DIR}/prometheus.yaml:/etc/prometheus/prometheus.yml" # Mount the config directory
 export HEAD_HOSTNAME="$(hostname)"
 export HEAD_IPADDRESS="$(hostname --ip-address)"
-export VLLM_IP_ADDRESS="10.3.40.145" # Updated by CLI
+export VLLM_IP_ADDRESS="10.3.40.15" # Updated by CLI
 export LUSTREIO_IP_ADDRESS="X.X.X.X" # Updated by CLI
 
 # --- Dynamic Configuration Generation ---

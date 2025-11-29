@@ -15,6 +15,8 @@ module load env/release/2023.1
 module load Apptainer/1.3.1-GCCcore-12.3.0
 
 set -x
+# Log SLURM job ID for tracking
+echo "SLURM_JOB_ID: ${SLURM_JOB_ID}"
 # Fix pmix error (munge)
 export PMIX_MCA_psec=native
 # Choose a directory for the cache 

@@ -47,19 +47,43 @@ class SlurmServer(ABC):
     def stop_job(self):
         """
         Stops the running SLURM job using scancel.
+        Resets state so new jobs can be detected.
+        Also clears the log file to prevent detecting old job IDs.
         """
+        # Try to find job ID if not set
         if not self.job_id:
-            print(f"No {self.job_name_prefix} job ID provided to stop.")
+            self.job_id = self._find_job_id()
+        
+        if not self.job_id:
+            print(f"No active {self.job_name_prefix} job found to stop.")
+            # Reset state anyway
+            self.running = 0
+            self.job_id = None
+            self.ip_address = None
+            self.ready = False
             return
         
         print(f"Stopping {self.job_name_prefix} job ID: {self.job_id}")
         try:
-            subprocess.run(["scancel", self.job_id], check=True, capture_output=True)
+            subprocess.run(["scancel", str(self.job_id)], check=True, capture_output=True)
             print(f"Job {self.job_id} cancelled successfully.")
-            self.running = 0
-            self.job_id = None
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Error stopping job {self.job_id}: {e}")
+        finally:
+            # Clear log files to prevent detecting old job IDs
+            # We'll truncate them rather than delete so they still exist for future jobs
+            if os.path.exists(self.log_out_file):
+                with open(self.log_out_file, 'w') as f:
+                    f.write(f"# Previous job {self.job_id} was stopped. New job will start below.\n")
+            if os.path.exists(self.log_err_file):
+                with open(self.log_err_file, 'w') as f:
+                    f.write(f"# Previous job {self.job_id} was stopped. New job will start below.\n")
+            
+            # Always reset state so new jobs can be started
+            self.running = 0
+            self.job_id = None
+            self.ip_address = None
+            self.ready = False
 
     def remove_logs(self):
         """
@@ -72,7 +96,29 @@ class SlurmServer(ABC):
             os.remove(self.log_err_file)
 
     def _find_job_id(self):
-        """Helper to find the active job ID using squeue."""
+        """Helper to find the active job ID, checking logs first, then squeue."""
+        # First, try to find job ID from log file (for detecting new jobs)
+        if os.path.exists(self.log_out_file):
+            try:
+                grep_command = ["grep", 'SLURM_JOB_ID:', self.log_out_file]
+                grep_result = subprocess.run(grep_command, capture_output=True, text=True, check=False)
+                
+                if grep_result.returncode == 0 and grep_result.stdout:
+                    # Get the most recent job ID from logs
+                    job_id_lines = grep_result.stdout.strip().splitlines()
+                    if job_id_lines:
+                        # Extract job ID from the last line (most recent)
+                        last_line = job_id_lines[-1]
+                        if 'SLURM_JOB_ID:' in last_line:
+                            log_job_id = last_line.split('SLURM_JOB_ID:')[1].strip()
+                            # Verify this job is still active
+                            if self._is_job_active(log_job_id):
+                                print(f"Found {self.job_name_prefix} job ID {log_job_id} from logs.")
+                                return log_job_id
+            except Exception as e:
+                print(f"Warning: Could not read job ID from logs: {e}")
+        
+        # Fallback to squeue search
         print(f"Checking {self.job_name_prefix} job status via squeue...")
         try:
             squeue_command = ["squeue", "-h", "-o", "%i %j", "-u", self.user]
@@ -89,6 +135,28 @@ class SlurmServer(ABC):
         
         print(f"No active job found with name starting with '{self.job_name_prefix}'.")
         return None
+    
+    def _is_job_active(self, job_id):
+        """Check if a job ID is still active/running (not cancelled, completed, etc.)."""
+        if not job_id:
+            return False
+        try:
+            # Check job state - only return True if job is actually RUNNING
+            result = subprocess.run(
+                ["squeue", "-j", str(job_id), "-h", "-o", "%T"],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            # Job states: RUNNING, PENDING, etc. If job is cancelled/completed, it won't appear
+            # But also check the state explicitly
+            if result.returncode == 0 and result.stdout.strip():
+                state = result.stdout.strip()
+                # Only consider it active if it's RUNNING or PENDING (not CANCELLED, COMPLETED, etc.)
+                return state in ["RUNNING", "PENDING", "CONFIGURING"]
+            return False
+        except Exception:
+            return False
 
     def _find_ip_address(self):
         """Helper to poll the log file for the IP address."""
@@ -134,6 +202,11 @@ class SlurmServer(ABC):
         # 1. Find the job ID
         job_id = self._find_job_id()
         if not job_id:
+            # No job found - reset state
+            self.running = 0
+            self.job_id = None
+            self.ip_address = None
+            self.ready = False
             return None, None, False
         self.job_id = job_id
         

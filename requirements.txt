@@ -1,3 +1,10 @@
 requests
-numpy
+numpy==2.2.6
 prometheus_client
+# Dependencies for benchmark_serving_structured_output.py
+datasets
+pandas
+transformers
+tqdm
+aiohttp
+huggingface_hub

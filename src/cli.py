@@ -22,13 +22,46 @@ class CLI(cmd.Cmd):
     def do_start(self, arg):
         """
         Starts the service using the sbatch script.
-        Usage: start [vllm|monitors|chroma|lustre]
+        Usage: 
+          start vllm [--model MODEL] [--nodes N]
+          start [monitors|chroma|lustre]
         """
-        if arg.lower() == 'vllm':
-            if self.vllm_server.running:
-                print(f"A VLLM job ({self.vllm_server.job_id}) is already being managed.")
-                return
-            job_id = self.vllm_server.start_job()
+        if arg.lower().startswith('vllm'):
+            # Check if job is actually still running before refusing to start
+            if self.vllm_server.running and self.vllm_server.job_id:
+                # Verify the job is still active
+                if self.vllm_server._is_job_active(self.vllm_server.job_id):
+                    print(f"A VLLM job ({self.vllm_server.job_id}) is already being managed.")
+                    return
+                else:
+                    # Job is no longer active, reset state
+                    print(f"Previous VLLM job ({self.vllm_server.job_id}) is no longer active. Resetting state.")
+                    self.vllm_server.running = 0
+                    self.vllm_server.job_id = None
+                    self.vllm_server.ip_address = None
+                    self.vllm_server.ready = False
+            
+            # Parse arguments for vllm
+            args = arg.split()
+            model = None
+            node_count = None
+            
+            i = 1  # Skip 'vllm'
+            while i < len(args):
+                if args[i] == '--model' and i + 1 < len(args):
+                    model = args[i + 1]
+                    i += 2
+                elif args[i] == '--nodes' and i + 1 < len(args):
+                    try:
+                        node_count = int(args[i + 1])
+                        i += 2
+                    except ValueError:
+                        print(f"Error: Invalid node count: {args[i + 1]}")
+                        return
+                else:
+                    i += 1
+            
+            job_id = self.vllm_server.start_job(model=model, node_count=node_count)
             if job_id:
                 self.vllm_server.running = 1
         elif arg.lower() == 'monitors':
@@ -111,11 +144,46 @@ class CLI(cmd.Cmd):
     def do_bench(self, arg):
         """
         Runs a benchmark against the started server.
-        Usage: bench [vllm|chroma|lustre]
+        Usage: 
+          bench vllm [--num-requests N] [--output-len L] [--max-concurrency C]
+          bench chroma
+          bench lustre
         """
-        if arg.lower() == 'vllm':
+        if arg.lower().startswith('vllm'):
             if self.vllm_server.ip_address and self.vllm_server.ready:
-                self.vllm_server.benchmark_vllm()
+                # Parse arguments for vllm benchmark
+                args = arg.split()
+                num_requests = 10
+                output_len = 128
+                max_concurrency = None
+                
+                # Parse optional arguments
+                i = 1  # Skip 'vllm'
+                while i < len(args):
+                    if args[i] == '--num-requests' and i + 1 < len(args):
+                        num_requests = int(args[i + 1])
+                        i += 2
+                    elif args[i] == '--output-len' and i + 1 < len(args):
+                        output_len = int(args[i + 1])
+                        i += 2
+                    elif args[i] == '--max-concurrency' and i + 1 < len(args):
+                        max_concurrency = int(args[i + 1])
+                        i += 2
+                    else:
+                        i += 1
+                
+                # Display benchmark parameters
+                print(f"\nBenchmark parameters:")
+                print(f"  Number of requests: {num_requests}")
+                print(f"  Output length: {output_len} tokens")
+                print(f"  Max concurrency: {max_concurrency if max_concurrency else 'unlimited'}")
+                print()
+                
+                self.vllm_server.benchmark_vllm(
+                    num_requests=num_requests,
+                    output_len=output_len,
+                    max_concurrency=max_concurrency
+                )
             else:
                 print("IP address is unknown or server is not ready. Please run 'check vllm' successfully first.")
         
@@ -142,6 +210,28 @@ class CLI(cmd.Cmd):
         else:
             print("Invalid command. Usage: bench [vllm|chroma|lustre]")
 
+    def do_stop(self, arg):
+        """
+        Stops the specified service without deleting logs.
+        Usage: stop [vllm|monitors|chroma|lustre]
+        """
+        if arg.lower() == 'vllm':
+            self.vllm_server.stop_job()
+        elif arg.lower() == 'monitors':
+            self.monitor_server.stop_job()
+        elif arg.lower() == 'chroma':
+            self.chroma_server.stop_job()
+        elif arg.lower() == 'lustre':
+            self.lustre_server.stop_job()
+        elif arg.lower() == 'all':
+            print("Stopping all services...")
+            self.vllm_server.stop_job()
+            self.monitor_server.stop_job()
+            self.chroma_server.stop_job()
+            self.lustre_server.stop_job()
+        else:
+            print("Invalid command. Usage: stop [vllm|monitors|chroma|lustre|all]")
+
     def do_clean(self, arg):
         """
         Stops all started servers and deletes the logs.
@@ -164,9 +254,14 @@ class CLI(cmd.Cmd):
 
     def do_exit(self, arg):
         """
-        Stops the managed VLLM job and exits the CLI.
+        Exits the CLI.
+        Usage:
+          exit        - Exit without cleaning logs
+          exit clean  - Stop all servers, clean logs, then exit
         """
-        self.do_clean()
+        if arg.lower().strip() == 'clean':
+            print("Cleaning up before exit...")
+            self.do_clean()
         
         print("Exiting CLI...")
         print("Goodbye!")
@@ -174,10 +269,12 @@ class CLI(cmd.Cmd):
 
     def do_EOF(self, arg):
         """
-        Exits the CLI on EOF (Ctrl-D).
+        Exits the CLI on EOF (Ctrl-D) without cleaning.
         """
         print()
-        return self.do_exit(arg)
+        print("Exiting CLI...")
+        print("Goodbye!")
+        return True
 
 if __name__ == '__main__':
     CLI().cmdloop()
