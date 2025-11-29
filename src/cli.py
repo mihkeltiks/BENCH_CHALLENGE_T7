@@ -117,6 +117,8 @@ class CLI(cmd.Cmd):
             job_id, ip_address, chroma_ready = self.chroma_server.check_status()
             
             if ip_address:
+                print("Updating Monitors batch script with Chroma IP address...")
+                self.monitor_server.update_chroma_target_in_script(self.chroma_server.ip_address)
                 print("-" * 20)
                 print(f"State updated: Job ID = {self.chroma_server.job_id}, IP = {self.chroma_server.ip_address}")
                 if chroma_ready:

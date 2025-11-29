@@ -99,3 +99,47 @@ class MonitorServer(SlurmServer):
                 print("No Monitor IP line found to update in the script.")
         except Exception as e:
             print(f"Error updating Lustre script: {e}")
+
+    def update_chroma_target_in_script(self, chroma_ip_address: str):
+        """
+        Update the monitors batch script with the Chroma server IP address so Prometheus/Grafana can scrape it.
+
+        Looks for a line beginning with: export CHROMA_IP_ADDRESS="
+        and replaces its value. If not found, warns the user.
+        """
+        script_path = self.script_path
+        print(f"Attempting to update Chroma IP in: {script_path}")
+
+        if not chroma_ip_address:
+            print("Error: Chroma IP address is empty; run 'check chroma' first.")
+            return
+
+        if not os.path.exists(script_path):
+            print(f"Error: Monitors script not found at {script_path}")
+            return
+
+        try:
+            with open(script_path, 'r') as f:
+                lines = f.readlines()
+
+            updated_lines = []
+            updated = False
+            target_line_prefix = 'export CHROMA_IP_ADDRESS="'
+
+            for line in lines:
+                if line.strip().startswith('export CHROMA_IP_ADDRESS='):
+                    new_line = f'export CHROMA_IP_ADDRESS="{chroma_ip_address}" # Updated by CLI\n'
+                    updated_lines.append(new_line)
+                    updated = True
+                    print(f"  -> Replaced CHROMA IP with: {chroma_ip_address}")
+                else:
+                    updated_lines.append(line)
+
+            if updated:
+                with open(script_path, 'w') as f:
+                    f.writelines(updated_lines)
+                print(f"Success! Monitors batch script updated with Chroma IP: {chroma_ip_address}")
+            else:
+                print("Warning: Could not find the 'export CHROMA_IP_ADDRESS=' line in the script.")
+        except Exception as e:
+            print(f"An error occurred while updating the monitors script for Chroma: {e}")
