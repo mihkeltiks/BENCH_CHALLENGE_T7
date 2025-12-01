@@ -57,6 +57,13 @@ The implementation follows a two-layer architecture:
 │  - Server startup                           │
 └─────────────────────────────────────────────┘
 ```
+## Video
+Chroma benchmarks:
+
+https://github.com/user-attachments/assets/7cae4834-a882-437a-9c79-21beab3a56da
+
+Vllm benchmarks:
+
 
 
 The planned Python structure looks as follows:
