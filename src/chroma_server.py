@@ -5,6 +5,8 @@ import requests
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from servers import SlurmServer
+import openlit
+import chromadb
 
 class ChromaServer(SlurmServer):
     def __init__(self):
@@ -15,6 +17,8 @@ class ChromaServer(SlurmServer):
             log_out_file="chroma.out",
             log_err_file="chroma.err"
         )
+        self.grafana_ip = None
+        self._openlit_initialized = False
 
     def _check_readiness(self):
         """
@@ -28,7 +32,7 @@ class ChromaServer(SlurmServer):
             return False
         
         port = 8000  # Default Chroma port
-        health_url = f"http://{self.ip_address}:{port}/api/v1/heartbeat"
+        health_url = f"http://{self.ip_address}:{port}/api/v2/heartbeat"
         
         for i in range(10):
             try:
@@ -45,7 +49,55 @@ class ChromaServer(SlurmServer):
         print("Chroma server did not become ready.")
         return False
 
-    def benchmark_chroma(self, port=8000, num_vectors=1000, num_queries=100, dimension=384, concurrent_queries=10):
+    def _init_openlit(self, monitor_ip=None, prometheus_port=9090):
+        """
+        Initialize OpenLIT for ChromaDB instrumentation.
+        Should be called before any ChromaDB operations.
+        
+        Args:
+            monitor_ip: IP address of the Prometheus server
+                       If provided, OpenLIT will export telemetry to Prometheus OTLP endpoint.
+                       If None, will check for OTEL environment variables (e.g., Grafana Cloud).
+            prometheus_port: Port for Prometheus web server (default: 9090)
+        """
+        if self._openlit_initialized:
+            return  # Already initialized
+        
+        import os
+        
+        # Check if Grafana Cloud or other OTLP endpoint is configured via environment variables
+        otlp_endpoint_env = os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT')
+        
+        if otlp_endpoint_env:
+            # Use environment variables (e.g., Grafana Cloud)
+            otlp_headers_env = os.getenv('OTEL_EXPORTER_OTLP_HEADERS')
+            print(f"Initializing OpenLIT with OTLP endpoint from environment: {otlp_endpoint_env}")
+            if otlp_headers_env:
+                print(f"  Using OTLP headers from environment (length: {len(otlp_headers_env)})")
+            else:
+                print("  ⚠ Warning: OTEL_EXPORTER_OTLP_HEADERS not set!")
+            
+            try:
+                openlit.init()  # Will read from OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_EXPORTER_OTLP_HEADERS
+                print("  ✓ OpenLIT initialized successfully")
+                self._openlit_initialized = True
+            except Exception as e:
+                print(f"  ✗ Failed to initialize OpenLIT: {e}")
+                import traceback
+                traceback.print_exc()
+                self._openlit_initialized = False
+        elif monitor_ip:
+            # Use local Prometheus OTLP receiver endpoint
+            otlp_endpoint = f"http://{monitor_ip}:{prometheus_port}/api/v1/otlp/v1/metrics"
+            print(f"Initializing OpenLIT with Prometheus OTLP endpoint: {otlp_endpoint}")
+            openlit.init(otlp_endpoint=otlp_endpoint)
+            self._openlit_initialized = True
+        else:
+            print("No monitor endpoint or OTLP environment variables found. OpenLIT will not be initialized.")
+            self._openlit_initialized = False
+
+    def benchmark_chroma(self, port=8000, num_vectors=1000, num_queries=100, dimension=384, 
+                        concurrent_queries=10, monitor_ip=None):
         """
         Benchmark Chroma vector database operations.
         
@@ -61,36 +113,49 @@ class ChromaServer(SlurmServer):
             num_queries: Number of query operations to perform
             dimension: Dimension of the vectors (default: 384, common for sentence embeddings)
             concurrent_queries: Number of concurrent query workers
+            monitor_ip: IP address of monitoring server for OpenLIT telemetry export (optional)
         """
         if not self.ip_address:
             print("Cannot run benchmark without an IP address.")
             return
 
-        base_url = f"http://{self.ip_address}:{port}/api/v1"
+        # Initialize OpenLIT before any ChromaDB operations
+        # Use monitor_ip parameter if provided, otherwise try self.grafana_ip
+        monitor_endpoint = monitor_ip or getattr(self, 'grafana_ip', None)
+        self._init_openlit(monitor_ip=monitor_endpoint)  
+
+
+        # Use ChromaDB HttpClient to connect to remote server
+        # OpenLIT will automatically instrument all operations
+        client = chromadb.HttpClient(host=self.ip_address, port=port)
         collection_name = "benchmark_collection"
         
         print("=" * 60)
         print(f"Starting Chroma Benchmark")
-        print(f"Server: {base_url}")
+        print(f"Server: {self.ip_address}:{port}")
         print(f"Vectors: {num_vectors}, Queries: {num_queries}, Dimension: {dimension}")
+        if monitor_endpoint:
+            print(f"OpenLIT monitoring: {monitor_endpoint}")
         print("=" * 60)
 
         try:
             # 1. Create/Get Collection
             print("\n[1/4] Creating collection...")
             start_time = time.time()
-            collection_data = {
-                "name": collection_name,
-                "metadata": {"description": "Benchmark collection"}
-            }
-            response = requests.post(f"{base_url}/collections", json=collection_data, timeout=30)
+            try:
+                # Try to get existing collection first
+                collection = client.get_collection(collection_name)
+                print(f"  Using existing collection: {collection_name}")
+            except Exception:
+                # Collection doesn't exist, create it
+                collection = client.create_collection(
+                    name=collection_name,
+                    metadata={"description": "Benchmark collection"}
+                )
+                print(f"  Created new collection: {collection_name}")
             
-            if response.status_code in [200, 409]:  # 200 created, 409 already exists
-                collection_creation_time = time.time() - start_time
-                print(f"✓ Collection ready (took {collection_creation_time:.2f}s)")
-            else:
-                print(f"✗ Failed to create collection: {response.status_code} - {response.text}")
-                return
+            collection_creation_time = time.time() - start_time
+            print(f"✓ Collection ready (took {collection_creation_time:.2f}s)")
 
             # 2. Generate and Insert Vectors
             print(f"\n[2/4] Inserting {num_vectors} vectors...")
@@ -101,6 +166,9 @@ class ChromaServer(SlurmServer):
             ids = [f"vec_{i}" for i in range(num_vectors)]
             metadatas = [{"index": i, "batch": i // 100} for i in range(num_vectors)]
             
+            # Get collection for operations
+            collection = client.get_collection(collection_name)
+            
             # Insert in batches (Chroma recommends batch sizes)
             batch_size = 100
             insert_times = []
@@ -109,21 +177,12 @@ class ChromaServer(SlurmServer):
                 batch_start = time.time()
                 batch_end = min(i + batch_size, num_vectors)
                 
-                add_data = {
-                    "ids": ids[i:batch_end],
-                    "embeddings": vectors[i:batch_end],
-                    "metadatas": metadatas[i:batch_end]
-                }
-                
-                response = requests.post(
-                    f"{base_url}/collections/{collection_name}/add",
-                    json=add_data,
-                    timeout=60
+                # Use ChromaDB client API - automatically instrumented by OpenLIT
+                collection.add(
+                    ids=ids[i:batch_end],
+                    embeddings=vectors[i:batch_end],
+                    metadatas=metadatas[i:batch_end]
                 )
-                
-                if response.status_code != 201:
-                    print(f"✗ Batch {i}-{batch_end} failed: {response.status_code}")
-                    continue
                 
                 batch_time = time.time() - batch_start
                 insert_times.append(batch_time)
@@ -149,22 +208,20 @@ class ChromaServer(SlurmServer):
             
             for i in range(num_queries):
                 query_vector = np.random.randn(dimension).astype(np.float32).tolist()
-                query_data = {
-                    "query_embeddings": [query_vector],
-                    "n_results": 10
-                }
                 
                 query_start = time.time()
-                response = requests.post(
-                    f"{base_url}/collections/{collection_name}/query",
-                    json=query_data,
-                    timeout=30
-                )
-                query_time = time.time() - query_start
-                
-                if response.status_code == 200:
+                try:
+                    # Use ChromaDB client API - automatically instrumented by OpenLIT
+                    results = collection.query(
+                        query_embeddings=[query_vector],
+                        n_results=10
+                    )
+                    query_time = time.time() - query_start
                     query_times.append(query_time)
                     successful_queries += 1
+                except Exception as e:
+                    query_time = time.time() - query_start
+                    print(f"  Query {i} failed: {e}")
             
             total_query_time = time.time() - start_time
             avg_query_time = np.mean(query_times) if query_times else 0
@@ -185,21 +242,21 @@ class ChromaServer(SlurmServer):
             
             def execute_query(query_id):
                 try:
+                    # Each thread needs its own client connection for thread safety
+                    thread_client = chromadb.HttpClient(host=self.ip_address, port=port)
+                    thread_collection = thread_client.get_collection(collection_name)
+                    
                     query_vector = np.random.randn(dimension).astype(np.float32).tolist()
-                    query_data = {
-                        "query_embeddings": [query_vector],
-                        "n_results": 10
-                    }
                     
                     query_start = time.time()
-                    response = requests.post(
-                        f"{base_url}/collections/{collection_name}/query",
-                        json=query_data,
-                        timeout=30
+                    # Use ChromaDB client API - automatically instrumented by OpenLIT
+                    results = thread_collection.query(
+                        query_embeddings=[query_vector],
+                        n_results=10
                     )
                     query_time = time.time() - query_start
                     
-                    return (response.status_code == 200, query_time)
+                    return (True, query_time)
                 except Exception as e:
                     return (False, 0)
             

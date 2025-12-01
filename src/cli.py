@@ -188,6 +188,14 @@ class CLI(cmd.Cmd):
                 print("IP address is unknown or server is not ready. Please run 'check vllm' successfully first.")
         
         elif arg.lower() == 'chroma':
+            # Get monitor server IP if available (for OpenLIT telemetry export)
+            monitor_ip = None
+            if self.monitor_server.ip_address:
+                monitor_ip = self.monitor_server.ip_address
+                print(f"OpenLIT will export telemetry to monitoring server: {monitor_ip}")
+            else:
+                print("Monitor server not running. OpenLIT and grafana monitoring disabled")
+            
             if self.chroma_server.ip_address and self.chroma_server.ready:
                 print("\nStarting Chroma benchmark...")
                 print("This will test vector ingestion and query performance.")
@@ -195,7 +203,8 @@ class CLI(cmd.Cmd):
                     num_vectors=1000,      # Start with 1k vectors for testing
                     num_queries=100,        # 100 queries
                     dimension=384,          # Standard sentence embedding dimension
-                    concurrent_queries=10   # 10 concurrent workers
+                    concurrent_queries=10,  # 10 concurrent workers
+                    monitor_ip=monitor_ip    # Pass monitor IP for OpenLIT
                 )
             else:
                 print("IP address is unknown or server is not ready. Please run 'check chroma' successfully first.")

@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH -q default
-#SBATCH -p gpu
+#SBATCH -p cpu
 #SBATCH -t 2:0:0
 #SBATCH -N 1
 #SBATCH -J chroma
@@ -26,7 +26,7 @@ mkdir -p ${LOCAL_CHROMA_DATA}
 
 # Path to the Chroma SIF image
 # You'll need to pull/build this image
-export SIF_IMAGE=$REPO_SOURCE/utils/sif-images/chromadb_latest.sif
+export SIF_IMAGE=$REPO_SOURCE/utils/sif-images/chroma_latest.sif
 export APPTAINER_ARGS="-B ${LOCAL_CHROMA_DATA}:/chroma/chroma"
 
 # Get node information

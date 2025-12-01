@@ -70,4 +70,10 @@ echo "HEAD NODE: ${HEAD_HOSTNAME}"
 echo "IP ADDRESS: ${HEAD_IPADDRESS}"
 echo "SSH TUNNEL (Execute on your local machine): ssh -p 8822 ${USER}@login.lxp.lu  -NL 9090:${HEAD_IPADDRESS}:9090"  
 
-apptainer run ${APPTAINER_ARGS} ${PROMETHEUS_IMAGE}
+# Start Prometheus with OTLP receiver enabled for OpenLIT telemetry
+# --config.file points to the mounted config file
+# --storage.tsdb.path sets the storage location (mounted at /prometheus)
+apptainer run ${APPTAINER_ARGS} ${PROMETHEUS_IMAGE} \
+    --config.file=/etc/prometheus/prometheus.yml \
+    --storage.tsdb.path=/prometheus \
+    --web.enable-otlp-receiver
