@@ -39,6 +39,7 @@ export HEAD_HOSTNAME="$(hostname)"
 export HEAD_IPADDRESS="$(hostname --ip-address)"
 export VLLM_IP_ADDRESS="10.3.40.15" # Updated by CLI
 export LUSTREIO_IP_ADDRESS="X.X.X.X" # Updated by CLI
+export CHROMA_IP_ADDRESS="X.X.X.X" # Updated by CLI
 
 # --- Dynamic Configuration Generation ---
 # Prometheus expects its config file at a specific path, typically /etc/prometheus/prometheus.yaml
@@ -62,6 +63,10 @@ scrape_configs:
     static_configs:
       - targets:
           - '$LUSTREIO_IP_ADDRESS:8000'
+  - job_name: chroma
+    static_configs:
+      - targets:
+          - '$CHROMA_IP_ADDRESS:8000'
 
 EOF
 # ----------------------------------------

@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH -q default
-#SBATCH -p gpu
+#SBATCH -p cpu
 #SBATCH -t 2:0:0
 #SBATCH -N 1
 #SBATCH -J IO500
@@ -16,4 +16,7 @@ set -x
 
 export IO500_ROOT=$REPO_SOURCE/utils/io500
 
-srun --ntasks=16 $IO500_ROOT/io500 io500.ini
+num_procs=16
+ini_file="io500.ini"
+
+srun --ntasks=$num_procs $IO500_ROOT/io500 $ini_file
