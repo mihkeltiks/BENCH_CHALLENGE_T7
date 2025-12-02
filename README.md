@@ -29,7 +29,11 @@ python cli.py
 > check monitors
 > bench vllm
 ```
-`start` commands launch Slurm scripts that can be found in the directory `batch_scripts`. The line `check vllm` updates the prometheus configuration yaml with the IP of the vLLM master node. This should be done before starting the monitors so that the results from the vLLM benchmark can be visualized. `check monitors` will print the necessary tunnels that need to be opened so that Grafana and Prometheus can be openend in localhost. The Grafana-Prometheus connection can be configured as described [here](https://docs.vllm.ai/en/v0.7.2/getting_started/examples/prometheus_grafana.html). 
+`start` commands launch Slurm scripts that can be found in the directory `batch_scripts`. The line `check vllm` updates the prometheus configuration yaml with the IP of the vLLM master node. This should be done before starting the monitors so that the results from the vLLM benchmark can be visualized. `check monitors` will print the necessary tunnels that need to be opened so that Grafana and Prometheus can be openend in localhost. The Grafana-Prometheus connection can be configured as described [here](https://docs.vllm.ai/en/v0.7.2/getting_started/examples/prometheus_grafana.html).
+
+To view the logs of the servers, use `logs` followed by the service name, e.g., `logs vllm` or `logs lustre`.
+For Lustre, the user is prompted to scroll through previously completed benchmark runs as well as the currently running one for fine grained access.
+
 
 ## Architecture
 
@@ -65,6 +69,10 @@ https://github.com/user-attachments/assets/7cae4834-a882-437a-9c79-21beab3a56da
 vLLM benchmarks:
 
 https://github.com/user-attachments/assets/964b28b8-c817-4e61-a400-04a57c790449
+
+Lustre/IO500 benchmarks:
+
+https://github.com/user-attachments/assets/7a6a5600-459f-4966-a8f5-a5b65467f1c5
 
 The planned Python structure looks as follows:
 * interface module: starting servers and clients, conducting benchmarks; logs automatically forwarded to prometheus/grafana; interactive and issue-once workflows
