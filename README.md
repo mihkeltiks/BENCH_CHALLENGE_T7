@@ -62,9 +62,9 @@ Chroma benchmarks:
 
 https://github.com/user-attachments/assets/7cae4834-a882-437a-9c79-21beab3a56da
 
-Vllm benchmarks:
+vLLM benchmarks:
 
-
+https://github.com/user-attachments/assets/964b28b8-c817-4e61-a400-04a57c790449
 
 The planned Python structure looks as follows:
 * interface module: starting servers and clients, conducting benchmarks; logs automatically forwarded to prometheus/grafana; interactive and issue-once workflows
