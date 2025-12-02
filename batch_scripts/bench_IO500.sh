@@ -1,8 +1,8 @@
 #!/bin/bash -l
 #SBATCH -q default
-#SBATCH -p cpu
+#SBATCH -p gpu
 #SBATCH -t 2:0:0
-#SBATCH -N 1
+#SBATCH -N 4
 #SBATCH -J IO500
 #SBATCH --ntasks-per-node=16
 #SBATCH --error=logs/IO500/IO500.err
@@ -16,7 +16,7 @@ set -x
 
 export IO500_ROOT=$REPO_SOURCE/utils/io500
 
-num_procs=16
+num_procs=64
 ini_file="io500.ini"
 
 srun --ntasks=$num_procs $IO500_ROOT/io500 $ini_file

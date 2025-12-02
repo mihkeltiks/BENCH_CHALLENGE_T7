@@ -143,6 +143,22 @@ class CLI(cmd.Cmd):
         else:
             print("Invalid command. Usage: check [vllm|monitors|chroma|lustre]")
 
+    def do_logs(self, arg):
+        """
+        Displays the logs of the specified service.
+        Usage: logs [vllm|monitors|chroma|lustre]
+        """
+        if arg.lower() == 'vllm':
+            self.vllm_server.display_logs()
+        elif arg.lower() == 'monitors':
+            self.monitor_server.display_logs()
+        elif arg.lower() == 'chroma':
+            self.chroma_server.display_logs()
+        elif arg.lower() == 'lustre':
+            self.lustre_server.display_logs()
+        else:
+            print("Invalid command. Usage: logs [vllm|monitors|chroma|lustre]")
+
     def do_bench(self, arg):
         """
         Runs a benchmark against the started server.

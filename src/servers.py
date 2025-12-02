@@ -85,6 +85,34 @@ class SlurmServer(ABC):
             self.ip_address = None
             self.ready = False
 
+    def display_logs(self):
+        """
+        Displays the .out and .err log files for this job.
+        """
+        print(f"Displaying {self.job_name_prefix} logs...")
+        # query user
+        choice = input("Do you want to display the output log? (y/n): ").strip().lower()
+        if choice == 'y' and os.path.exists(self.log_out_file):
+            # show only last 15 lines
+            print(f"\n--- {self.log_out_file} (last 15 lines) ---")
+            with open(self.log_out_file, 'r') as f:
+                lines = f.readlines()
+                for line in lines[-15:]:
+                    print(line, end='')
+        elif choice == 'y':
+            print(f"No output log file found: {self.log_out_file}")
+        choice = input("Do you want to display the error log? (y/n): ").strip().lower()
+        if choice == 'y' and os.path.exists(self.log_err_file):
+            # show only last 15 lines, ignore lines starting with '+'
+            print(f"\n--- {self.log_err_file} (last 15 lines) ---")
+            with open(self.log_err_file, 'r') as f:
+                lines = f.readlines()
+                filtered_lines = [line for line in lines if not line.startswith('+')]
+                for line in filtered_lines[-15:]:
+                    print(line, end='')
+        elif choice == 'y':
+            print(f"No error log file found: {self.log_err_file}")
+
     def remove_logs(self):
         """
         Removes the .out and .err log files for this job.

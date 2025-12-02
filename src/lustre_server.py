@@ -130,6 +130,70 @@ class LustreServer(SlurmServer):
         print("You can monitor job completion by \"check lustre\" command.")
         return
 
+    def display_logs(self):
+        """
+        Prompt user whether to display log file for current job
+        or to display IO500 benchmark results (if previous runs exist)
+        """
+        base_dir = "logs/IO500"
+
+        def tail(path, lines=200):
+            try:
+                with open(path, "rb") as f:
+                    f.seek(0, os.SEEK_END)
+                    end = f.tell()
+                    size = 1024
+                    data = b""
+                    while end > 0 and len(data.splitlines()) <= lines:
+                        start = max(0, end - size)
+                        f.seek(start)
+                        chunk = f.read(end - start)
+                        data = chunk + data
+                        end = start
+                        size *= 2
+                    text = data.decode(errors="replace")
+                    return "\n".join(text.splitlines()[-lines:])
+            except Exception as e:
+                return f"Error reading file {path}: {e}"
+
+        if os.path.exists(base_dir):
+            prev_runs  = [e for e in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, e))]
+            root_files = [f for f in ("IO500.out", "IO500.err") if os.path.exists(os.path.join(base_dir, f))]
+            if prev_runs:
+                choice = input("Previous IO500 run results found. View previous runs? (y/n): ").strip().lower()
+                if choice == "y" or choice == "yes":
+                    # display choice enumeration of previous runs
+                    for i, d in enumerate(prev_runs, 1):
+                        print(f"{i}. {d}")
+                    while True:
+                        sel = input("Select a run number to view (or press Enter to cancel): ").strip()
+                        if not sel.isdigit():
+                            break
+                        sel_idx = int(sel) - 1
+                        if sel_idx < 0 or sel_idx >= len(prev_runs):
+                            print("Invalid selection.")
+                            continue
+                        chosen_run = prev_runs[sel_idx]
+                        choice = input("Display full result.txt (f) or summary (s)?").strip().lower()
+                        out_path = os.path.join(base_dir, chosen_run, "result.txt" if choice == "f" else "result_summary.txt")
+                        if os.path.exists(out_path):
+                            try:
+                                with open(out_path, "r", errors="replace") as f:
+                                    print(f.read())
+                            except Exception as e:
+                                print(f"Error reading {out_path}: {e}")
+                        else:
+                            print(f"Something has gone wrong, no result file found at {out_path}.")
+            if root_files:
+                choice = input("Current IO500 job output files found. View them? (y/n): ").strip().lower()
+                if choice == "y" or choice == "yes":
+                    for f in root_files:
+                        path = os.path.join(base_dir, f)
+                        print(f"--- Contents of {f} ---")
+                        print(tail(path, lines=200))
+        
+        super().display_logs()
+
     def _check_readiness(self):
         if self.bench_task is not None:
             job_running = subprocess.run(
