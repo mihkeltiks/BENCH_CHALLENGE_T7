@@ -159,6 +159,51 @@ class CLI(cmd.Cmd):
         else:
             print("Invalid command. Usage: logs [vllm|monitors|chroma|lustre]")
 
+    def do_save(self, arg):
+        """
+        Saves the logs of the specified service to a file.
+        If no service is specified, all are saved, filename is not required.
+        Usage: save [vllm|monitors|chroma|lustre] <filename>
+        """
+        args = arg.split()
+        services = ['vllm', 'monitors', 'chroma', 'lustre']
+        filename = None
+        if len(args) == 0:
+            print("Saving logs for all services...")
+            # build filename to current timestamp
+            filename = f"bench_logs_all_{int(time.time())}.zip"
+        elif len(args) == 1:
+            if args[0].lower() in services:
+                service = args[0].lower()
+                filename = f"bench_logs_{service}_{int(time.time())}.zip"
+        else:
+            user_spec = []
+            has_filename = False
+            for arg_item in args:
+                if arg_item.lower() in services:
+                    user_spec.append(arg_item.lower())
+                else:
+                    if not has_filename:
+                        filename = arg_item
+                        has_filename = True
+                    else:
+                        print("Error: unknown argument or possible duplicate filename.")
+                        print("First occurence :", filename)
+                        print("Second occurence:", arg_item)
+                        return
+            services = user_spec
+        # Now save logs for specified services
+        for service in services:
+            if service == 'vllm':
+                self.vllm_server.save_logs(filename)
+            elif service == 'monitors':
+                self.monitor_server.save_logs(filename)
+            elif service == 'chroma':
+                self.chroma_server.save_logs(filename)
+            elif service == 'lustre':
+                self.lustre_server.save_logs(filename)
+        print(f"Logs saved to {filename}")
+
     def do_bench(self, arg):
         """
         Runs a benchmark against the started server.

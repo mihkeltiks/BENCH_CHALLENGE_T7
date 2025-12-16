@@ -113,6 +113,14 @@ class SlurmServer(ABC):
         elif choice == 'y':
             print(f"No error log file found: {self.log_err_file}")
 
+    def save_logs(self, destination_zip):
+        """
+        Saves the .out and .err log files for this job to the specified zip file.
+        """
+        print(f"Saving {self.job_name_prefix} ...")
+        zip_command = ["zip", "-r", destination_zip, self.log_dir]
+        subprocess.run(zip_command)
+
     def remove_logs(self):
         """
         Removes the .out and .err log files for this job.

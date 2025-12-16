@@ -217,6 +217,20 @@ class LustreServer(SlurmServer):
                 self.bench_task = None
         return True
 
+    def save_logs(self, destination_zip):
+        """
+        Saves the .out and .err log files for this job to the specified zip file.
+        """
+        if os.path.exists("logs/IO500"):
+            inp = input("Save IO500 benchmark logs as well? (y/n): ").strip().lower()
+            if inp == "y" or inp == "yes":
+                print("Saving IO500 benchmark logs ...")
+                zip_command = ["zip", "-r", destination_zip, "logs/IO500/"]
+                subprocess.run(zip_command)
+        print(f"Saving {self.job_name_prefix} ...")
+        zip_command = ["zip", "-r", destination_zip, self.log_dir]
+        subprocess.run(zip_command)
+
     def stop_job(self):
         """
         Stops the running SLURM job using scancel.
