@@ -16,9 +16,9 @@ class VLLMServer(SlurmServer):
             log_out_file="vllm.out",
             log_err_file="vllm.err"
         )
-        self.current_model = "google/gemma-3-27b-it"
+        self.current_model = "meta-llama/Llama-3.1-8B-Instruct"
         self.current_node_count = None
-        self.temp_script_path = None  # Track temporary script for cleanup
+        self.temp_script_path = None
 
     def _check_readiness(self):
         """
@@ -29,7 +29,7 @@ class VLLMServer(SlurmServer):
         for i in range(5):
             if os.path.exists(self.log_out_file):
                 try:
-                    grep_command = ["grep", 'Starting vLLM API server 0', self.log_out_file]
+                    grep_command = ["grep", 'Available routes are', self.log_out_file]
                     grep_result = subprocess.run(grep_command, capture_output=True, text=True, check=False)
                     if grep_result.returncode == 0 and grep_result.stdout:
                         print(f"vLLM server is ready to take requests")
@@ -45,30 +45,28 @@ class VLLMServer(SlurmServer):
 
     def _modify_batch_script(self, model=None, node_count=None):
         """
-        Modify the batch script with new model and/or node count.
+        Modify the batch script with new model and node count.
         Creates a temporary modified version of the script.
+        
+        Args:
+            model: Model name to use
+            node_count: Number of nodes
         
         Returns:
             str: Path to the modified script (or original if no changes)
         """
-        # Get absolute path to the original script
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         original_script = os.path.join(project_root, self.script_path.lstrip('../'))
         
         if not model and not node_count:
-            # No changes needed, return original
             return original_script
         
-        # Read the original script
         with open(original_script, 'r') as f:
             script_content = f.read()
         
-        # Track if we made changes
         modified = False
         
-        # Modify node count if provided
         if node_count is not None:
-            # Replace #SBATCH -N line
             pattern = r'#SBATCH -N \d+'
             replacement = f'#SBATCH -N {node_count}'
             if re.search(pattern, script_content):
@@ -77,9 +75,7 @@ class VLLMServer(SlurmServer):
                 self.current_node_count = node_count
                 print(f"Updated node count to {node_count}")
         
-        # Modify model if provided
         if model is not None:
-            # Replace export HF_MODEL line
             pattern = r'export HF_MODEL="[^"]*"'
             replacement = f'export HF_MODEL="{model}"'
             if re.search(pattern, script_content):
@@ -91,37 +87,23 @@ class VLLMServer(SlurmServer):
         if not modified:
             return original_script
         
-        # Write modified script to a temporary location
         script_dir = os.path.dirname(original_script)
         temp_script = os.path.join(script_dir, "start_vllm_temp.sh")
         
         with open(temp_script, 'w') as f:
             f.write(script_content)
         
-        # Make it executable
         os.chmod(temp_script, 0o755)
-        
-        # Store path for cleanup
         self.temp_script_path = temp_script
         
         return temp_script
 
     def start_job(self, model=None, node_count=None):
-        """
-        Starts the sbatch script and returns the job ID.
-        
-        Args:
-            model: Model name to use (e.g., "google/gemma-3-27b-it")
-            node_count: Number of nodes to allocate (e.g., 2)
-        """
-        # Reset temp script path
         self.temp_script_path = None
         
-        # Store model if provided (before modifying script, so it's always set)
         if model is not None:
             self.current_model = model
         
-        # Modify batch script if parameters provided
         script_to_use = self._modify_batch_script(model=model, node_count=node_count)
         
         print(f"Starting {self.job_name_prefix} service via sbatch...")
@@ -140,13 +122,11 @@ class VLLMServer(SlurmServer):
             self.job_id = result.stdout.strip().split()[-1]
             print(f"{self.job_name_prefix} script submitted. Job ID: {self.job_id}")
             
-            # Clean up temporary script after successful submission
-            self._cleanup_temp_script()
+            self._cleanup_temp_script() 
             
             return self.job_id
         except (subprocess.CalledProcessError, FileNotFoundError, IndexError) as e:
             print(f"Error starting {self.job_name_prefix} job: {e}")
-            # Clean up temporary script even on error
             self._cleanup_temp_script()
             return None
     
@@ -161,7 +141,7 @@ class VLLMServer(SlurmServer):
             finally:
                 self.temp_script_path = None
 
-    def benchmark_vllm(self, port=8000, num_requests=10, model="google/gemma-3-27b-it", 
+    def benchmark_vllm(self, port=8000, num_requests=10, model="meta-llama/Llama-3.1-8B-Instruct", 
                        dataset="json", output_len=128, request_rate=float("inf"),
                        max_concurrency=None, structured_output_ratio=1.0):
         """
@@ -170,7 +150,7 @@ class VLLMServer(SlurmServer):
         Args:
             port: Port number for the vLLM server (default: 8000)
             num_requests: Number of prompts to process (default: 10)
-            model: Model name (default: "google/gemma-3-27b-it", will use model from startup if set)
+            model: Model name (default: "meta-llama/Llama-3.1-8B-Instruct", will use model from startup if set)
             dataset: Dataset type - "json", "json-unique", "grammar", "regex", "choice", or "xgrammar_bench" (default: "json")
             output_len: Number of output tokens (default: 128)
             request_rate: Requests per second (default: inf for all at once)
@@ -181,12 +161,10 @@ class VLLMServer(SlurmServer):
             print("Cannot run benchmark without an IP address.")
             return
         
-        # Use the model selected during startup if one was set and default is being used
-        if self.current_model and model == "google/gemma-3-27b-it":
+        if self.current_model and model == "meta-llama/Llama-3.1-8B-Instruct":
             model = self.current_model
             print(f"Using model from startup: {model}")
 
-        # Get the absolute path to the benchmark script
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         benchmark_script = os.path.join(script_dir, "benchmarks", "benchmark_serving_structured_output.py")
         
@@ -201,25 +179,19 @@ class VLLMServer(SlurmServer):
         print(f"  Number of prompts: {num_requests}")
         print(f"  Output length: {output_len} tokens")
         
-        # Create results directory as absolute path (relative to project root)
-        # Since benchmark runs from benchmarks/ directory, we need absolute path
         if os.path.isabs(self.log_dir):
             results_dir = os.path.join(self.log_dir, "benchmark_results")
         else:
-            # Make it relative to project root
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             results_dir = os.path.join(project_root, 'src', self.log_dir, "benchmark_results")
         
-        # Create the directory if it doesn't exist
         os.makedirs(results_dir, exist_ok=True)
         
-        # Generate filename with benchmark parameters
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         model_short = model.replace("/", "_").replace("-", "_")
         max_conc_str = f"mc{max_concurrency}" if max_concurrency else "mcunlimited"
         filename = f"benchmark_{model_short}_n{num_requests}_ol{output_len}_{max_conc_str}_ds{dataset}_{timestamp}.json"
         
-        # Build command arguments
         cmd = [
             "python",
             "../benchmarks/benchmark_serving_structured_output.py",
@@ -242,7 +214,6 @@ class VLLMServer(SlurmServer):
         if max_concurrency:
             cmd.extend(["--max-concurrency", str(max_concurrency)])
         
-        # Add endpoint for completions API
         cmd.extend(["--endpoint", "/v1/completions"])
         
         print(f"\nExecuting: {' '.join(cmd)}\n")

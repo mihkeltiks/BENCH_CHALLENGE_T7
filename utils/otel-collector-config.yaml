@@ -1,0 +1,91 @@
+# OpenTelemetry Collector Configuration
+# Routes telemetry from OpenLIT (ChromaDB) and vLLM to appropriate backends
+# - Metrics → Prometheus (via remote write)
+# - Traces → Prometheus (via OTLP) for trace visualization in Grafana
+# - Logs → Debug console
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+  
+  memory_limiter:
+    # 80% of maximum memory up to 2G
+    limit_mib: 1500
+    # 25% of limit up to 2G
+    spike_limit_mib: 512
+    check_interval: 5s
+  
+  # Add resource attributes for better filtering in Grafana
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: "benchmark"
+        action: upsert
+  
+  # Add attributes to identify source
+  attributes:
+    actions:
+      - key: collector.name
+        value: "otel-collector"
+        action: insert
+
+exporters:
+  # Export metrics to Prometheus using remote write
+  prometheusremotewrite:
+    endpoint: "http://localhost:9090/api/v1/write"
+    add_metric_suffixes: false
+    resource_to_telemetry_conversion:
+      enabled: true
+  
+  # Export traces to Prometheus for Grafana Tempo-like visualization
+  # Note: Prometheus 3.0+ has experimental trace support via OTLP
+  otlp/prometheus:
+    endpoint: "http://localhost:9090"
+    tls:
+      insecure: true
+  
+  # Debug exporter for traces and logs (useful for debugging)
+  debug:
+    verbosity: normal
+    sampling_initial: 5
+    sampling_thereafter: 100
+  
+  # File exporter for traces (can be viewed later)
+  file/traces:
+    path: /tmp/otel-traces.json
+    rotation:
+      max_megabytes: 100
+      max_days: 7
+
+service:
+  pipelines:
+    # Metrics pipeline: OTLP → Prometheus
+    # Collects metrics from both vLLM and OpenLIT (ChromaDB)
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, attributes, batch]
+      exporters: [prometheusremotewrite, debug]
+    
+    # Traces pipeline: OTLP → File & Debug
+    # Collects traces from vLLM inference and ChromaDB operations
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, attributes, batch]
+      exporters: [file/traces, debug]
+    
+    # Logs pipeline: OTLP → Debug
+    # Collects structured logs from vLLM and OpenLIT
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [debug]
+

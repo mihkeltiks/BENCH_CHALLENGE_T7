@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH -q default
-#SBATCH -p gpu
+#SBATCH -p cpu
 #SBATCH -t 2:0:0
 #SBATCH -N 1
 #SBATCH -J lustreIO

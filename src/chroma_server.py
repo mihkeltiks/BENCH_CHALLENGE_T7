@@ -5,8 +5,7 @@ import requests
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from servers import SlurmServer
-import openlit
-import chromadb
+# Lazy imports for openlit and chromadb (only imported when needed to speed up CLI startup)
 
 class ChromaServer(SlurmServer):
     def __init__(self):
@@ -49,52 +48,42 @@ class ChromaServer(SlurmServer):
         print("Chroma server did not become ready.")
         return False
 
-    def _init_openlit(self, monitor_ip=None, prometheus_port=9090):
-        """
-        Initialize OpenLIT for ChromaDB instrumentation.
-        Should be called before any ChromaDB operations.
-        
-        Args:
-            monitor_ip: IP address of the Prometheus server
-                       If provided, OpenLIT will export telemetry to Prometheus OTLP endpoint.
-                       If None, will check for OTEL environment variables (e.g., Grafana Cloud).
-            prometheus_port: Port for Prometheus web server (default: 9090)
-        """
+    def _init_openlit(self, monitor_ip=None):
         if self._openlit_initialized:
-            return  # Already initialized
+            return 
         
-        import os
+        # Lazy import to speed up CLI startup
+        import openlit
         
-        # Check if Grafana Cloud or other OTLP endpoint is configured via environment variables
-        otlp_endpoint_env = os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT')
-        
-        if otlp_endpoint_env:
-            # Use environment variables (e.g., Grafana Cloud)
-            otlp_headers_env = os.getenv('OTEL_EXPORTER_OTLP_HEADERS')
-            print(f"Initializing OpenLIT with OTLP endpoint from environment: {otlp_endpoint_env}")
-            if otlp_headers_env:
-                print(f"  Using OTLP headers from environment (length: {len(otlp_headers_env)})")
-            else:
-                print("  ⚠ Warning: OTEL_EXPORTER_OTLP_HEADERS not set!")
+        if monitor_ip:
+            otel_collector_port = 4318
+            otlp_endpoint = f"http://{monitor_ip}:{otel_collector_port}"
             
             try:
-                openlit.init()  # Will read from OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_EXPORTER_OTLP_HEADERS
-                print("  ✓ OpenLIT initialized successfully")
+                import os
+                os.environ['OTEL_EXPORTER_OTLP_PROTOCOL'] = 'http/protobuf'
+                openlit.init(otlp_endpoint=otlp_endpoint)
+                print("OpenLIT initialized successfully")
                 self._openlit_initialized = True
             except Exception as e:
-                print(f"  ✗ Failed to initialize OpenLIT: {e}")
-                import traceback
-                traceback.print_exc()
+                print(f"Failed to initialize OpenLIT: {e}")
                 self._openlit_initialized = False
-        elif monitor_ip:
-            # Use local Prometheus OTLP receiver endpoint
-            otlp_endpoint = f"http://{monitor_ip}:{prometheus_port}/api/v1/otlp/v1/metrics"
-            print(f"Initializing OpenLIT with Prometheus OTLP endpoint: {otlp_endpoint}")
-            openlit.init(otlp_endpoint=otlp_endpoint)
-            self._openlit_initialized = True
         else:
-            print("No monitor endpoint or OTLP environment variables found. OpenLIT will not be initialized.")
-            self._openlit_initialized = False
+            otlp_endpoint_env = os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT')
+            
+            if otlp_endpoint_env:
+                otlp_headers_env = os.getenv('OTEL_EXPORTER_OTLP_HEADERS')
+                print(f"Initializing OpenLIT with OTLP endpoint from environment: {otlp_endpoint_env}")
+                
+                try:
+                    openlit.init()
+                    print("OpenLIT initialized successfully (using Grafana Cloud)")
+                    self._openlit_initialized = True
+                except Exception as e:
+                    print(f"Failed to initialize OpenLIT: {e}")
+            else:
+                print("No monitor endpoint or OTLP environment variables found. OpenLIT will not be initialized.")
+                self._openlit_initialized = False
 
     def benchmark_chroma(self, port=8000, num_vectors=1000, num_queries=100, dimension=384, 
                         concurrent_queries=10, monitor_ip=None):
@@ -119,14 +108,11 @@ class ChromaServer(SlurmServer):
             print("Cannot run benchmark without an IP address.")
             return
 
-        # Initialize OpenLIT before any ChromaDB operations
-        # Use monitor_ip parameter if provided, otherwise try self.grafana_ip
         monitor_endpoint = monitor_ip or getattr(self, 'grafana_ip', None)
         self._init_openlit(monitor_ip=monitor_endpoint)  
 
-
-        # Use ChromaDB HttpClient to connect to remote server
-        # OpenLIT will automatically instrument all operations
+        # Lazy import to speed up CLI startup
+        import chromadb
         client = chromadb.HttpClient(host=self.ip_address, port=port)
         collection_name = "benchmark_collection"
         

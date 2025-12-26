@@ -2,7 +2,7 @@
 #SBATCH -q default
 #SBATCH -p gpu
 #SBATCH -t 2:0:0
-#SBATCH -N 2
+#SBATCH -N 1
 #SBATCH -J vllm
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=128
@@ -24,10 +24,10 @@ export LOCAL_HF_CACHE=$REPO_SOURCE/utils/caches
 mkdir -p ${LOCAL_HF_CACHE}
 # Make sure the path to the SIF image is correct
 # Here, the SIF image is in the same directory as this script
-export SIF_IMAGE=$REPO_SOURCE/utils/sif-images/vllm-openai_latest.sif
+export SIF_IMAGE=$REPO_SOURCE/utils/sif-images/vllm-openai_v0.10.2.sif
 export APPTAINER_ARGS=" --nvccli -B ${LOCAL_HF_CACHE}:/root/.cache/huggingface --env HF_HOME=/root/.cache/huggingface --env HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}"  
 # Make sure your have been granted access to the model
-export HF_MODEL="google/gemma-3-27b-it"
+export HF_MODEL="meta-llama/Llama-3.1-8B-Instruct"
 
 export HEAD_HOSTNAME="$(hostname)"
 export HEAD_IPADDRESS="$(hostname --ip-address)"

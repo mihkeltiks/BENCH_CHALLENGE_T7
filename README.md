@@ -18,18 +18,21 @@ cd utils/sif-images
 cd ../../
 ```
 
-Then the repo can be used currently like so:
+Then the repo can be used currently for example like so:
 
 ```
 cd src
 python cli.py
-> start vllm
-> check vllm # NOTE read below
 > start monitors
+> start vllm
 > check monitors
+> check vllm
 > bench vllm
 ```
-`start` commands launch Slurm scripts that can be found in the directory `batch_scripts`. The line `check vllm` updates the prometheus configuration yaml with the IP of the vLLM master node. This should be done before starting the monitors so that the results from the vLLM benchmark can be visualized. `check monitors` will print the necessary tunnels that need to be opened so that Grafana and Prometheus can be openend in localhost. The Grafana-Prometheus connection can be configured as described [here](https://docs.vllm.ai/en/v0.7.2/getting_started/examples/prometheus_grafana.html).
+
+`start` commands launch Slurm scripts that can be found in the directory `batch_scripts`. 
+
+`check` commands poll the slurm queue and log files to determine whether they are ready and to The line `check vllm` updates the prometheus configuration yaml with the IP of the vLLM master node and issues a reload command so that prometheus starts scraping the correct node for metrics. `check monitors` will print the necessary tunnels that need to be opened so that Grafana and Prometheus can be openend in localhost. The Grafana-Prometheus connection can be configured as described [here](https://docs.vllm.ai/en/v0.7.2/getting_started/examples/prometheus_grafana.html).
 
 To view the logs of the servers, use `logs` followed by the service name, e.g., `logs vllm` or `logs lustre`.
 For Lustre, the user is prompted to scroll through previously completed benchmark runs as well as the currently running one for fine grained access.
@@ -61,6 +64,22 @@ The implementation follows a two-layer architecture:
 │  - Server startup                           │
 └─────────────────────────────────────────────┘
 ```
+
+## Benchmark capabilities
+
+When issuing the command `bench vllm`, a structured output serving benchmark is executed against the running vLLM server. This benchmark measures inference performance metrics including latency, throughput, time-to-first-token (TTFT), and time-per-output-token (TPOT). The benchmark supports various dataset types such as JSON, grammar, regex, and choice-based structured outputs, and can be configured with different request rates and concurrency levels.
+
+When issuing the command `bench chroma`, a vector database benchmark is executed against the running ChromaDB server. This benchmark tests collection creation, vector insertion performance (ingestion throughput), query performance for similarity search operations, and concurrent query performance under load. The benchmark uses OpenLIT instrumentation to automatically collect performance metrics, which are forwarded to the OpenTelemetry Collector for monitoring.
+
+When issuing the command `bench lustre`, the IO500 benchmark suite is executed to test parallel file system performance on Lustre. IO500 measures both I/O bandwidth using IOR (for both easy and hard workloads) and metadata performance using mdtest (file creation, stat, read, and deletion operations). This provides comprehensive performance characterization of the Lustre parallel file system under various workloads.
+
+
+## Displaying metrics
+
+When issuing the command `start monitors`, three different services are started - Grafana, Prometheus and OpenTelemetry Collector. Prometheus is used to receive all the metrics and Grafana to visualize them. The OpenTelemetry Collector is used to measure the performance of the ChromaDB benchmark. The collector passes the metrics forward to Prometheus.
+
+In Grafana, Prometheus has to be configured as a data source. If both tunnels are active, this can be simply done by setting the prometheus IP to `localhost:9090`. After that, dashboards have to be generated. These can be imported as json files, which are provided in `utils/grafana-dashboards` for ChromaDB and vLLM. Then, the model that the vLLM serve was configured to serve has to be selected insterted to the `model_name` field as well.
+
 ## Video
 Chroma benchmarks:
 
@@ -73,16 +92,3 @@ https://github.com/user-attachments/assets/964b28b8-c817-4e61-a400-04a57c790449
 Lustre/IO500 benchmarks:
 
 https://github.com/user-attachments/assets/7a6a5600-459f-4966-a8f5-a5b65467f1c5
-
-The planned Python structure looks as follows:
-* interface module: starting servers and clients, conducting benchmarks; logs automatically forwarded to prometheus/grafana; interactive and issue-once workflows
-* server module: general implementation providing commands to start, check and shut down services (storage, database and inference)
-* client module: clients connect to a server and simulate some exemplary workflow
-* benchmark module: uses the clients and servers to simulate 
-* logs module: parses the logs of the clients and servers
-* monitor module: starts grafana/prometheus and receives logs
-
-Planned benchmark capabilities:
-* inference: vLLM, using benchmarks from https://github.com/vllm-project/vllm/tree/main/.buildkite/nightly-benchmarks
-* file storage: lustre - IO500, STREAM. maybe S3 maybe postgres
-* vector database: Chroma

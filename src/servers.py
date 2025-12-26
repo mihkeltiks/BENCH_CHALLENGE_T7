@@ -15,9 +15,8 @@ class SlurmServer(ABC):
         self.job_id = None
         self.ip_address = None
         self.running = 0
-        self.ready = False # Generic readiness flag
+        self.ready = False
         
-        # Configuration for the specific server
         self.job_name_prefix = job_name
         self.script_path = script_path
         self.log_dir = log_dir
@@ -50,13 +49,11 @@ class SlurmServer(ABC):
         Resets state so new jobs can be detected.
         Also clears the log file to prevent detecting old job IDs.
         """
-        # Try to find job ID if not set
         if not self.job_id:
             self.job_id = self._find_job_id()
         
         if not self.job_id:
             print(f"No active {self.job_name_prefix} job found to stop.")
-            # Reset state anyway
             self.running = 0
             self.job_id = None
             self.ip_address = None
@@ -70,8 +67,6 @@ class SlurmServer(ABC):
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(f"Error stopping job {self.job_id}: {e}")
         finally:
-            # Clear log files to prevent detecting old job IDs
-            # We'll truncate them rather than delete so they still exist for future jobs
             if os.path.exists(self.log_out_file):
                 with open(self.log_out_file, 'w') as f:
                     f.write(f"# Previous job {self.job_id} was stopped. New job will start below.\n")
@@ -79,7 +74,6 @@ class SlurmServer(ABC):
                 with open(self.log_err_file, 'w') as f:
                     f.write(f"# Previous job {self.job_id} was stopped. New job will start below.\n")
             
-            # Always reset state so new jobs can be started
             self.running = 0
             self.job_id = None
             self.ip_address = None
@@ -177,18 +171,14 @@ class SlurmServer(ABC):
         if not job_id:
             return False
         try:
-            # Check job state - only return True if job is actually RUNNING
             result = subprocess.run(
                 ["squeue", "-j", str(job_id), "-h", "-o", "%T"],
                 capture_output=True,
                 text=True,
                 check=False
             )
-            # Job states: RUNNING, PENDING, etc. If job is cancelled/completed, it won't appear
-            # But also check the state explicitly
             if result.returncode == 0 and result.stdout.strip():
                 state = result.stdout.strip()
-                # Only consider it active if it's RUNNING or PENDING (not CANCELLED, COMPLETED, etc.)
                 return state in ["RUNNING", "PENDING", "CONFIGURING"]
             return False
         except Exception:

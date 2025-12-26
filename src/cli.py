@@ -27,9 +27,7 @@ class CLI(cmd.Cmd):
           start [monitors|chroma|lustre]
         """
         if arg.lower().startswith('vllm'):
-            # Check if job is actually still running before refusing to start
             if self.vllm_server.running and self.vllm_server.job_id:
-                # Verify the job is still active
                 if self.vllm_server._is_job_active(self.vllm_server.job_id):
                     print(f"A VLLM job ({self.vllm_server.job_id}) is already being managed.")
                     return
@@ -41,12 +39,11 @@ class CLI(cmd.Cmd):
                     self.vllm_server.ip_address = None
                     self.vllm_server.ready = False
             
-            # Parse arguments for vllm
             args = arg.split()
             model = None
             node_count = None
             
-            i = 1  # Skip 'vllm'
+            i = 1
             while i < len(args):
                 if args[i] == '--model' and i + 1 < len(args):
                     model = args[i + 1]
@@ -68,7 +65,6 @@ class CLI(cmd.Cmd):
             if self.monitor_server.running:
                 print(f"A monitors job ({self.monitor_server.job_id}) is already being managed.")
                 return
-            # Use the generic start_job() method
             job_id = self.monitor_server.start_job()
             if job_id:
                 self.monitor_server.running = 1
@@ -99,10 +95,16 @@ class CLI(cmd.Cmd):
             job_id, ip_address, vllm_ready = self.vllm_server.check_status()
             
             if ip_address:
-                print("Updating Monitors batch script with VLLM IP address...")
-                self.monitor_server.update_vllm_target_in_script(self.vllm_server.ip_address)
+                if self.monitor_server.ip_address:
+                    print("Updating Prometheus configuration with vLLM IP...")
+                    self.monitor_server.update_vllm_prometheus_target(self.vllm_server.ip_address)
+                
                 print("-" * 20)
                 print(f"State updated: Job ID = {self.vllm_server.job_id}, IP = {self.vllm_server.ip_address}")
+                if vllm_ready:
+                    print(f"vLLM server is READY for benchmarking!")
+                else:
+                    print(f"vLLM server is running but not yet ready. Try checking again.")
                 print("-" * 20)
 
         elif arg.lower() == 'monitors':
@@ -117,8 +119,8 @@ class CLI(cmd.Cmd):
             job_id, ip_address, chroma_ready = self.chroma_server.check_status()
             
             if ip_address:
-                print("Updating Monitors batch script with Chroma IP address...")
-                self.monitor_server.update_chroma_target_in_script(self.chroma_server.ip_address)
+                # print("Updating Monitors batch script with Chroma IP address...")
+                # self.monitor_server.update_chroma_target_in_script(self.chroma_server.ip_address)
                 print("-" * 20)
                 print(f"State updated: Job ID = {self.chroma_server.job_id}, IP = {self.chroma_server.ip_address}")
                 if chroma_ready:
@@ -209,8 +211,14 @@ class CLI(cmd.Cmd):
         Runs a benchmark against the started server.
         Usage: 
           bench vllm [--num-requests N] [--output-len L] [--max-concurrency C]
-          bench chroma
+          bench chroma [--vectors N] [--queries N] [--dimension N] [--concurrent N]
           bench lustre
+        
+        ChromaDB benchmark options:
+          --vectors, -v N      : Number of vectors to insert (default: 1000)
+          --queries, -q N      : Number of queries to run (default: 100)
+          --dimension, -d N    : Vector dimension (default: 384)
+          --concurrent, -c N   : Concurrent query workers (default: 10)
         """
         if arg.lower().startswith('vllm'):
             if self.vllm_server.ip_address and self.vllm_server.ready:
@@ -250,7 +258,47 @@ class CLI(cmd.Cmd):
             else:
                 print("IP address is unknown or server is not ready. Please run 'check vllm' successfully first.")
         
-        elif arg.lower() == 'chroma':
+        elif arg.lower().startswith('chroma'):
+            # Parse arguments for chroma benchmark
+            args = arg.split()
+            num_vectors = 1000      # Default: 1k vectors
+            num_queries = 100       # Default: 100 queries
+            dimension = 384         # Default: standard sentence embedding dimension
+            concurrent_queries = 10 # Default: 10 concurrent workers
+            
+            i = 1  # Skip 'chroma'
+            while i < len(args):
+                if args[i] in ['--vectors', '-v'] and i + 1 < len(args):
+                    try:
+                        num_vectors = int(args[i + 1])
+                        i += 2
+                    except ValueError:
+                        print(f"Error: Invalid vector count: {args[i + 1]}")
+                        return
+                elif args[i] in ['--queries', '-q'] and i + 1 < len(args):
+                    try:
+                        num_queries = int(args[i + 1])
+                        i += 2
+                    except ValueError:
+                        print(f"Error: Invalid query count: {args[i + 1]}")
+                        return
+                elif args[i] in ['--dimension', '-d'] and i + 1 < len(args):
+                    try:
+                        dimension = int(args[i + 1])
+                        i += 2
+                    except ValueError:
+                        print(f"Error: Invalid dimension: {args[i + 1]}")
+                        return
+                elif args[i] in ['--concurrent', '-c'] and i + 1 < len(args):
+                    try:
+                        concurrent_queries = int(args[i + 1])
+                        i += 2
+                    except ValueError:
+                        print(f"Error: Invalid concurrent queries: {args[i + 1]}")
+                        return
+                else:
+                    i += 1
+            
             # Get monitor server IP if available (for OpenLIT telemetry export)
             monitor_ip = None
             if self.monitor_server.ip_address:
@@ -262,12 +310,17 @@ class CLI(cmd.Cmd):
             if self.chroma_server.ip_address and self.chroma_server.ready:
                 print("\nStarting Chroma benchmark...")
                 print("This will test vector ingestion and query performance.")
+                print(f"Parameters:")
+                print(f"  Vectors: {num_vectors}")
+                print(f"  Queries: {num_queries}")
+                print(f"  Dimension: {dimension}")
+                print(f"  Concurrent queries: {concurrent_queries}")
                 self.chroma_server.benchmark_chroma(
-                    num_vectors=1000,      # Start with 1k vectors for testing
-                    num_queries=100,        # 100 queries
-                    dimension=384,          # Standard sentence embedding dimension
-                    concurrent_queries=10,  # 10 concurrent workers
-                    monitor_ip=monitor_ip    # Pass monitor IP for OpenLIT
+                    num_vectors=num_vectors,
+                    num_queries=num_queries,
+                    dimension=dimension,
+                    concurrent_queries=concurrent_queries,
+                    monitor_ip=monitor_ip
                 )
             else:
                 print("IP address is unknown or server is not ready. Please run 'check chroma' successfully first.")
@@ -308,6 +361,9 @@ class CLI(cmd.Cmd):
         """
         Stops all started servers and deletes the logs.
         """
+        self.clean()
+
+    def clean(self):
         if self.vllm_server.running:
             self.vllm_server.stop_job()
             self.vllm_server.remove_logs()
@@ -333,7 +389,7 @@ class CLI(cmd.Cmd):
         """
         if arg.lower().strip() == 'clean':
             print("Cleaning up before exit...")
-            self.do_clean()
+            self.clean()
         
         print("Exiting CLI...")
         print("Goodbye!")

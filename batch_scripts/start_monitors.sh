@@ -32,18 +32,26 @@ echo "SSH TUNNEL (Execute on your local machine): ssh -p 8822 ${USER}@login.lxp.
 apptainer run ${APPTAINER_ARGS} ${GRAFANA_IMAGE} &
 
 
+# Start OpenTelemetry Collector (intermediary for OpenLIT → Prometheus)
+export OTEL_COLLECTOR_IMAGE=$REPO_SOURCE/utils/sif-images/opentelemetry-collector_0.142.0.sif
+export OTEL_COLLECTOR_CONFIG=$REPO_SOURCE/utils/otel-collector-config.yaml
+export APPTAINER_ARGS="-B ${OTEL_COLLECTOR_CONFIG}:/etc/otelcol/config.yaml"
+
+echo "HEAD NODE: ${HEAD_HOSTNAME}"
+echo "IP ADDRESS: ${HEAD_IPADDRESS}"
+echo "Starting OpenTelemetry Collector on ports 4317 (gRPC) and 4318 (HTTP)..."
+
+apptainer run ${APPTAINER_ARGS} ${OTEL_COLLECTOR_IMAGE} &
+
+# Give collector a moment to start
+sleep 3
+
 export PROMETHEUS_IMAGE=$REPO_SOURCE/utils/sif-images/prometheus_latest.sif
 export PROMETHEUS_DIR=${REPO_SOURCE}/utils/prometheus_dir
 export APPTAINER_ARGS="-B ${PROMETHEUS_DIR}:/prometheus -B ${PROMETHEUS_DIR}/prometheus.yaml:/etc/prometheus/prometheus.yml" # Mount the config directory
 export HEAD_HOSTNAME="$(hostname)"
 export HEAD_IPADDRESS="$(hostname --ip-address)"
-export VLLM_IP_ADDRESS="10.3.40.15" # Updated by CLI
-export LUSTREIO_IP_ADDRESS="X.X.X.X" # Updated by CLI
-export CHROMA_IP_ADDRESS="X.X.X.X" # Updated by CLI
 
-# --- Dynamic Configuration Generation ---
-# Prometheus expects its config file at a specific path, typically /etc/prometheus/prometheus.yaml
-# We generate the file in the mounted directory (${PROMETHEUS_DIR})
 
 mkdir -p $PROMETHEUS_DIR
 
@@ -58,15 +66,7 @@ scrape_configs:
     # The actual IP of the vLLM head node
     static_configs:
       - targets:
-          - '$VLLM_IP_ADDRESS:8000' 
-  - job_name: lustreIO
-    static_configs:
-      - targets:
-          - '$LUSTREIO_IP_ADDRESS:8000'
-  - job_name: chroma
-    static_configs:
-      - targets:
-          - '$CHROMA_IP_ADDRESS:8000'
+          - '0.0.0.0:8000' 
 
 EOF
 # ----------------------------------------
@@ -75,10 +75,8 @@ echo "HEAD NODE: ${HEAD_HOSTNAME}"
 echo "IP ADDRESS: ${HEAD_IPADDRESS}"
 echo "SSH TUNNEL (Execute on your local machine): ssh -p 8822 ${USER}@login.lxp.lu  -NL 9090:${HEAD_IPADDRESS}:9090"  
 
-# Start Prometheus with OTLP receiver enabled for OpenLIT telemetry
-# --config.file points to the mounted config file
-# --storage.tsdb.path sets the storage location (mounted at /prometheus)
 apptainer run ${APPTAINER_ARGS} ${PROMETHEUS_IMAGE} \
     --config.file=/etc/prometheus/prometheus.yml \
     --storage.tsdb.path=/prometheus \
-    --web.enable-otlp-receiver
+    --web.enable-remote-write-receiver \
+    --web.enable-lifecycle
