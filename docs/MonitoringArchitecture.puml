@@ -1,0 +1,108 @@
+@startuml Monitoring Stack Architecture
+
+!define ICONURL https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v2.4.0
+!include ICONURL/common.puml
+!include ICONURL/font-awesome-5/server.puml
+!include ICONURL/font-awesome-5/chart_line.puml
+!include ICONURL/font-awesome-5/database.puml
+
+skinparam componentStyle rectangle
+skinparam backgroundColor #FEFEFE
+skinparam component {
+    BackgroundColor<<service>> LightBlue
+    BackgroundColor<<monitor>> LightGreen
+    BackgroundColor<<collector>> LightYellow
+    BackgroundColor<<user>> LightPink
+}
+
+' Increase vertical spacing for poster-friendly, top-to-bottom layout
+skinparam ranksep 100
+skinparam nodesep 15
+
+title Monitoring Stack Architecture for AI Factory Benchmarking
+
+' User Access Layer
+package "Local Machine" as local <<user>> {
+    [Web Browser] as browser
+    note right of browser
+        Access via SSH tunnels:
+        - localhost:3000 → Grafana
+        - localhost:9090 → Prometheus
+    end note
+}
+
+
+' MeluXina Compute Node
+package "MeluXina Compute Node" as melu {
+    
+    ' Monitoring Services (all running on same node)
+    package "Monitoring Stack\n(start monitors)" <<monitor>> {
+        
+        [Grafana\nPort 3000] as grafana <<monitor>>
+        [Prometheus\nPort 9090] as prometheus <<monitor>>
+        [OpenTelemetry\nCollector\nPorts 4317/4318] as otel <<collector>>
+        
+        database "Time Series\nDatabase\n(TSDB)" as tsdb
+        
+    }
+    
+    ' Service 1: vLLM
+    package "vLLM Inference Server" <<service>> {
+        [vLLM Server\nPort 8000] as vllm
+        [metrics endpoint\n(Prometheus format)] as vLLMmetrics
+        
+        vllm --> vLLMmetrics: exposes
+        
+    }
+    
+    ' Service 2: ChromaDB
+    package "ChromaDB Vector Database" as chroma_pkg <<service>> {
+        [ChromaDB Server\nPort 8000] as chroma
+        [OpenLIT SDK\n(Auto-instrumentation)] as openlit
+        
+        chroma -down-> openlit: instrumented by
+        
+    }
+    
+        
+    ' Service 3: Lustre/IO500
+    package "Lustre File System Benchmarking" as lustre_pkg <<service>> {
+        [IO500 Benchmark\nSuite] as io500
+        [Lustre Scraper\nPort 8000\n] as lustre_scraper
+        database "Result Files\n(result.txt,\nresult_summary.txt)" as io500_results
+        
+        io500 --> io500_results: generates
+        lustre_scraper -left-> io500_results
+        
+        
+
+        ' Layout constraint: place ChromaDB under Lustre
+        lustre_pkg -down[#white]-> chroma_pkg
+    }
+}
+
+' Layout constraint to force Local Machine above MeluXina Compute Node
+local -down[#white]-> melu
+
+' User access through SSH
+browser -down[#purple]-> grafana: access dashboards
+browser -down[#purple]-> prometheus: (optional) direct access
+
+' vLLM metrics flow
+vLLMmetrics -down[#blue]-> prometheus: HTTP GET\n(scrape every 5s)
+
+' ChromaDB metrics flow
+openlit -left[#green]-> otel: OTLP protocol\n(HTTP/gRPC)
+otel -up[#green]-> prometheus: Remote Write API\nlocalhost:9090
+prometheus -right-> tsdb: stores metrics
+
+io500_results -up[#purple]-> browser: viewed via\nlogs command\n
+lustre_scraper -[#gray]-> prometheus:Scrapes\n
+
+' Grafana queries Prometheus
+grafana -down[#red]-> prometheus: PromQL queries\nvia HTTP API
+
+
+
+@enduml
+
