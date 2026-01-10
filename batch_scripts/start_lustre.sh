@@ -9,11 +9,11 @@
 #SBATCH --error=logs/lustre/lustre.err
 #SBATCH --output=logs/lustre/lustre.out
 
-module --force purge
-module load env/release/2023.1
-module load Apptainer/1.3.1-GCCcore-12.3.0 Python
+# module --force purge
+# module load env/release/2023.1
+# module load Apptainer/1.3.1-GCCcore-12.3.0 Python
 
-pip install -r $REPO_SOURCE/requirements.txt
+# pip install -r $REPO_SOURCE/requirements.txt
 
 set -x
 # Log SLURM job ID for tracking
@@ -45,5 +45,5 @@ fi
 ln -s $LUSTRE_DIR $REPO_SOURCE/utils/lustre_test_dir
 
 ## Start scraping lustre info of the given directory
-
+srun --ntasks-per-node=1 --nodes=$SLURM_JOB_NUM_NODES python3 $REPO_SOURCE/src/scraper.py --service-name "$SLURM_JOB_NAME" &
 python $REPO_SOURCE/src/lustre_scraper.py --lustre-dir ${LUSTRE_DIR}

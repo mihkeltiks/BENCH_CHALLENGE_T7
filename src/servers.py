@@ -6,6 +6,16 @@ import time
 from abc import ABC, abstractmethod
 
 class SlurmServer(ABC):
+    @staticmethod
+    def get_all_master_ips(servers):
+        """
+        Returns a dict of job_name: ip_address for all running servers with a known IP.
+        """
+        ip_map = {}
+        for name, server in servers.items():
+            if getattr(server, 'ip_address', None):
+                ip_map[name] = server.ip_address
+        return ip_map
     """
     An abstract base class for managing a server application submitted as a SLURM job.
     

@@ -10,9 +10,9 @@
 #SBATCH --error=logs/vllm/vllm.err
 #SBATCH --output=logs/vllm/vllm.out
 
-module --force purge
-module load env/release/2023.1
-module load Apptainer/1.3.1-GCCcore-12.3.0
+# module --force purge
+# module load env/release/2023.1
+# module load Apptainer/1.3.1-GCCcore-12.3.0
 
 set -x
 # Log SLURM job ID for tracking
@@ -47,6 +47,10 @@ export RAY_CMD_WORKER="ray start --block --address=${HEAD_IPADDRESS}:${RANDOM_PO
 
 export TENSOR_PARALLEL_SIZE=4 # Set it to the number of GPU per node
 export PIPELINE_PARALLEL_SIZE=${SLURM_NNODES} # Set it to the number of allocated GPU nodes 
+
+# Hardware Metric Scraping
+pip install -r $REPO_SOURCE/requirements.txt
+srun --ntasks-per-node=1 --nodes=$SLURM_JOB_NUM_NODES python3 $REPO_SOURCE/src/scraper.py --service-name "$SLURM_JOB_NAME" &
 
 # Start head node
 echo "Starting head node"

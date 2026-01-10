@@ -4,6 +4,7 @@ from vllm_server import VLLMServer
 from monitor_server import MonitorServer
 from chroma_server import ChromaServer
 from lustre_server import LustreServer
+from servers import SlurmServer
 
 class CLI(cmd.Cmd):
     """
@@ -26,6 +27,16 @@ class CLI(cmd.Cmd):
           start vllm [--model MODEL] [--nodes N]
           start [monitors|chroma|lustre]
         """
+        def prometheus_update():
+            # Update Prometheus config with all master IPs
+            servers = {
+                'vllm': self.vllm_server,
+                'chroma': self.chroma_server,
+                'lustre': self.lustre_server,
+                'monitors': self.monitor_server
+            }
+            ip_map = SlurmServer.get_all_master_ips(servers)
+            self.monitor_server.update_prometheus_targets(ip_map)
         if arg.lower().startswith('vllm'):
             if self.vllm_server.running and self.vllm_server.job_id:
                 if self.vllm_server._is_job_active(self.vllm_server.job_id):
@@ -61,6 +72,9 @@ class CLI(cmd.Cmd):
             job_id = self.vllm_server.start_job(model=model, node_count=node_count)
             if job_id:
                 self.vllm_server.running = 1
+                # if self.monitor_server.running:
+                #     print("Updating Prometheus configuration with vLLM Hardware Scrape IP...")
+                #     self.monitor_server.update_vllm_prometheus_target(self.vllm_server.ip_address)
         elif arg.lower() == 'monitors':
             if self.monitor_server.running:
                 print(f"A monitors job ({self.monitor_server.job_id}) is already being managed.")
@@ -68,6 +82,7 @@ class CLI(cmd.Cmd):
             job_id = self.monitor_server.start_job()
             if job_id:
                 self.monitor_server.running = 1
+                # prometheus_update()
         elif arg.lower() == 'chroma':
             if self.chroma_server.running:
                 print(f"A Chroma job ({self.chroma_server.job_id}) is already being managed.")
@@ -75,6 +90,9 @@ class CLI(cmd.Cmd):
             job_id = self.chroma_server.start_job()
             if job_id:
                 self.chroma_server.running = 1
+                # if self.monitor_server.running:
+                #     print("Updating Prometheus configuration with Chroma Hardware Scrape IP...")
+                #     self.monitor_server.update_chroma_prometheus_target(self.chroma_server.ip_address)
         elif arg.lower() == 'lustre':
             if self.lustre_server.running:
                 print(f"A Lustre job ({self.lustre_server.job_id}) is already being managed.")
@@ -83,6 +101,9 @@ class CLI(cmd.Cmd):
             job_id = self.lustre_server.start_job()
             if job_id:
                 self.lustre_server.running = 1
+                # if self.monitor_server.running:
+                #     print("Updating Prometheus configuration with Lustre Hardware Scrape IP...")
+                #     self.monitor_server.update_lustre_prometheus_target(self.lustre_server.ip_address)
         else:
             print("Invalid command. Usage: start [vllm|monitors|chroma|lustre]")
 
@@ -110,10 +131,20 @@ class CLI(cmd.Cmd):
         elif arg.lower() == 'monitors':
             job_id, ip_address, monitor_ready = self.monitor_server.check_status()
             
+    
             if ip_address:
                 print("-" * 20)
                 print(f"State updated: Job ID = {self.monitor_server.job_id}, IP = {self.monitor_server.ip_address}")
                 print("-" * 20)
+                # Update Prometheus config with all master IPs
+                servers = {
+                    'vllm': self.vllm_server,
+                    'chroma': self.chroma_server,
+                    'lustre': self.lustre_server,
+                    'monitors': self.monitor_server
+                }
+                ip_map = SlurmServer.get_all_master_ips(servers)
+                self.monitor_server.update_prometheus_targets(ip_map)
         
         elif arg.lower() == 'chroma':
             job_id, ip_address, chroma_ready = self.chroma_server.check_status()

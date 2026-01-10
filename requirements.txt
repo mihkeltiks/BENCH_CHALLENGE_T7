@@ -1,6 +1,9 @@
 requests
 numpy==2.2.6
 prometheus_client
+# scraper dependencies
+mpi4py
+psutil
 # Dependencies for benchmark_serving_structured_output.py
 datasets
 pandas

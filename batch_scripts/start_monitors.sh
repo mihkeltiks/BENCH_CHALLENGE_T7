@@ -10,9 +10,9 @@
 #SBATCH --error=logs/monitors/monitors.err
 #SBATCH --output=logs/monitors/monitors.out
 
-module --force purge
-module load env/release/2023.1
-module load Apptainer/1.3.1-GCCcore-12.3.0
+# module --force purge
+# module load env/release/2023.1
+# module load Apptainer/1.3.1-GCCcore-12.3.0
 
 set -x
 # Log SLURM job ID for tracking
@@ -70,6 +70,10 @@ scrape_configs:
 
 EOF
 # ----------------------------------------
+
+# Hardware Metric Scraping
+pip install -r $REPO_SOURCE/requirements.txt
+srun --ntasks-per-node=1 --nodes=$SLURM_JOB_NUM_NODES python3 $REPO_SOURCE/src/scraper.py --service-name "$SLURM_JOB_NAME" &
 
 echo "HEAD NODE: ${HEAD_HOSTNAME}"
 echo "IP ADDRESS: ${HEAD_IPADDRESS}"

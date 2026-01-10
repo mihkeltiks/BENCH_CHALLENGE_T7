@@ -3,6 +3,7 @@ from prometheus_client import Gauge, start_http_server
 import subprocess
 import argparse
 import time
+import psutil
 
 parser = argparse.ArgumentParser(description='Lustre Scraper')
 parser.add_argument('--lustre-dir', type=str, required=True, help='Lustre directory to monitor')
