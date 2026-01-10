@@ -78,7 +78,12 @@ When issuing the command `bench lustre`, the IO500 benchmark suite is executed t
 
 When issuing the command `start monitors`, three different services are started - Grafana, Prometheus and OpenTelemetry Collector. Prometheus is used to receive all the metrics and Grafana to visualize them. The OpenTelemetry Collector is used to measure the performance of the ChromaDB benchmark. The collector passes the metrics forward to Prometheus.
 
+For Hardware Metric Gathering the prometheus configuration is updated on `check monitors` with the currently available IP addresses of the services, including the monitor host.
+Data is made available in aggregates on a service basis. The server hosting a service aggregates the hardware data collected through processes running on all associated nodes.
+Prometheus reads this data. Labels include the service name, job name, and job id.
+
 In Grafana, Prometheus has to be configured as a data source. If both tunnels are active, this can be simply done by setting the prometheus IP to `localhost:9090`. After that, dashboards have to be generated. These can be imported as json files, which are provided in `utils/grafana-dashboards` for ChromaDB and vLLM. Then, the model that the vLLM serve was configured to serve has to be selected insterted to the `model_name` field as well.
+The Hardware Dashboard located in the same folder should display all metrics as soon as prometheus is configured in Grafana.
 
 ## Video
 Chroma benchmarks:
