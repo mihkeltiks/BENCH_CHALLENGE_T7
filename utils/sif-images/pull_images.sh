@@ -1,8 +1,8 @@
 #!/bin/bash
 ml Apptainer/1.3.6-GCCcore-13.3.0
-apptainer pull docker://vllm/vllm-openai:v0.9.2
-apptainer pull docker://prom/prometheus:latest
-apptainer pull docker://grafana/grafana:latest
+apptainer pull docker://vllm/vllm-openai:v0.10.2
+apptainer pull docker://prom/prometheus:v3.9.1
+apptainer pull docker://grafana/grafana:12.3.0
 apptainer pull docker://chromadb/chroma:latest
 apptainer pull docker://otel/opentelemetry-collector:0.142.0
 

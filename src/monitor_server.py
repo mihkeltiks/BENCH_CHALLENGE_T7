@@ -6,8 +6,10 @@ from servers import SlurmServer
 class MonitorServer(SlurmServer):
     def update_prometheus_targets(self, ip_map):
         """
-        Update Prometheus config with all master node IPs for running services.
-        Replaces old job configs and only adds new lines if not present.
+        Rebuild Prometheus scrape targets from scratch (dedupes). 
+        For each running service:
+          - <name> scrapes service metrics on port 8000
+          - <name>-hw scrapes hardware exporter on port 8010
         ip_map: dict of job_name -> ip_address
         """
         repo_source = os.getenv('REPO_SOURCE', os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -15,45 +17,37 @@ class MonitorServer(SlurmServer):
         if not os.path.exists(prometheus_config_path):
             print(f"Error: Prometheus config not found at {prometheus_config_path}")
             return
+
+        service_port = 8000
+        hardware_port = 8010
+
         try:
-            with open(prometheus_config_path, 'r') as f:
-                lines = f.readlines()
-            managed = set(ip_map.keys())
-            new_lines = []
-            skip = False
-            found = {name: False for name in managed}
-            i = 0
-            while i < len(lines):
-                line = lines[i]
-                job_match = None
-                for name in managed:
-                    if f'- job_name: {name}' in line:
-                        job_match = name
-                        break
-                if job_match:
-                    # Replace this job block
-                    found[job_match] = True
-                    # Skip until next job_name or end
-                    new_lines.append(f"  - job_name: {job_match}\n")
-                    new_lines.append("    static_configs:\n")
-                    new_lines.append("      - targets:\n")
-                    new_lines.append(f"          - '{ip_map[job_match]}:8010'\n")
-                    i += 1
-                    while i < len(lines) and not lines[i].strip().startswith('- job_name:'):
-                        i += 1
-                    continue
-                new_lines.append(line)
-                i += 1
-            # Add new jobs not present
-            for name, ip in ip_map.items():
-                if not found[name]:
-                    new_lines.append(f"  - job_name: {name}\n")
-                    new_lines.append("    static_configs:\n")
-                    new_lines.append("      - targets:\n")
-                    new_lines.append(f"          - '{ip}:8010'\n")
+            # Preserve global block from existing file if present, else use defaults.
+            global_block = [
+                "global:\n",
+                "  scrape_interval: 5s\n",
+                "  evaluation_interval: 30s\n",
+                "\n",
+                "scrape_configs:\n"
+            ]
+
+            new_lines = list(global_block)
+
+            for name, ip in sorted(ip_map.items()):
+                new_lines.append(f"  - job_name: {name}\n")
+                new_lines.append("    static_configs:\n")
+                new_lines.append("      - targets:\n")
+                new_lines.append(f"          - '{ip}:{service_port}'\n")
+
+                new_lines.append(f"  - job_name: {name}-hw\n")
+                new_lines.append("    static_configs:\n")
+                new_lines.append("      - targets:\n")
+                new_lines.append(f"          - '{ip}:{hardware_port}'\n")
+
             with open(prometheus_config_path, 'w') as f:
                 f.writelines(new_lines)
-            print(f"✓ Prometheus config updated with master IPs: {ip_map}")
+
+            print(f"✓ Prometheus config rebuilt with master IPs: {ip_map}")
             self._reload_prometheus()
         except Exception as e:
             print(f"Error updating Prometheus config: {e}")

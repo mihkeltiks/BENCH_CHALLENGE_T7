@@ -41,7 +41,7 @@ echo "IP ADDRESS: ${HEAD_IPADDRESS}"
 echo "SSH TUNNEL (Execute on your local machine): ssh -p 8822 ${USER}@login.lxp.lu -NL ${CHROMA_PORT}:${HEAD_IPADDRESS}:${CHROMA_PORT}"
 
 # Hardware Metric Scraping
-pip install -r $REPO_SOURCE/requirements.txt
+# pip install -r $REPO_SOURCE/requirements.txt
 srun --ntasks-per-node=1 --nodes=$SLURM_JOB_NUM_NODES python3 $REPO_SOURCE/src/scraper.py --service-name "$SLURM_JOB_NAME" &
 
 # Start Chroma server

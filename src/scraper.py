@@ -20,6 +20,55 @@ def get_memory_usage():
 	mem = psutil.virtual_memory()
 	return mem.total, mem.used, mem.available, mem.percent
 
+def get_gpu_metrics():
+	"""
+	Collect basic GPU metrics using nvidia-smi.
+	Returns a list of dicts with keys: index, util, mem_total_bytes, mem_used_bytes, temp_c.
+	If nvidia-smi is unavailable or no GPUs are present, returns an empty list.
+	"""
+	try:
+		result = subprocess.run(
+			[
+				"nvidia-smi",
+				"--query-gpu=index,utilization.gpu,memory.total,memory.used,temperature.gpu",
+				"--format=csv,noheader,nounits",
+			],
+			capture_output=True,
+			text=True,
+			check=False,
+			timeout=5,
+		)
+		if result.returncode != 0 or not result.stdout.strip():
+			return []
+		metrics = []
+		for line in result.stdout.strip().splitlines():
+			parts = [p.strip() for p in line.split(",")]
+			if len(parts) != 5:
+				continue
+			try:
+				idx = int(parts[0])
+				util = float(parts[1])
+				mem_total = float(parts[2]) * 1024 * 1024  # MiB -> bytes
+				mem_used = float(parts[3]) * 1024 * 1024  # MiB -> bytes
+				temp = float(parts[4])
+				metrics.append(
+					{
+						"index": idx,
+						"util": util,
+						"mem_total_bytes": mem_total,
+						"mem_used_bytes": mem_used,
+						"temp_c": temp,
+					}
+				)
+			except ValueError:
+				continue
+		return metrics
+	except FileNotFoundError:
+		# nvidia-smi not present
+		return []
+	except Exception:
+		return []
+
 def main():
 
 	args = parser.parse_args()
@@ -62,13 +111,25 @@ def main():
 					'mem_total': Gauge('system_memory_total_bytes', 'Total system memory', ['hostname', 'job_title', 'job_id']),
 					'mem_used': Gauge('system_memory_used_bytes', 'Used system memory', ['hostname', 'job_title', 'job_id']),
 					'mem_available': Gauge('system_memory_available_bytes', 'Available system memory', ['hostname', 'job_title', 'job_id']),
-					'mem_percent': Gauge('system_memory_percent', 'System memory usage percent', ['hostname', 'job_title', 'job_id'])
+					'mem_percent': Gauge('system_memory_percent', 'System memory usage percent', ['hostname', 'job_title', 'job_id']),
+					'gpu_util_percent': Gauge('gpu_utilization_percent', 'GPU utilization percent', ['hostname', 'job_title', 'job_id', 'gpu_index']),
+					'gpu_mem_total': Gauge('gpu_memory_total_bytes', 'GPU memory total bytes', ['hostname', 'job_title', 'job_id', 'gpu_index']),
+					'gpu_mem_used': Gauge('gpu_memory_used_bytes', 'GPU memory used bytes', ['hostname', 'job_title', 'job_id', 'gpu_index']),
+					'gpu_temp_c': Gauge('gpu_temperature_celsius', 'GPU temperature Celsius', ['hostname', 'job_title', 'job_id', 'gpu_index'])
 				}
 				start_http_server(8010)
 
 			for metrics in all_metrics:
 				for key in ['cpu_load_1m', 'cpu_load_5m', 'cpu_load_15m', 'mem_total', 'mem_used', 'mem_available', 'mem_percent']:
 					main.gauges[key].labels(hostname=metrics['hostname'], job_title=metrics['job_title'], job_id=metrics['job_id']).set(metrics[key])
+			
+			# GPU metrics (polled on rank 0)
+			for gpu in get_gpu_metrics():
+				lbls = dict(hostname=hostname, job_title=job_title, job_id=job_id, gpu_index=str(gpu['index']))
+				main.gauges['gpu_util_percent'].labels(**lbls).set(gpu['util'])
+				main.gauges['gpu_mem_total'].labels(**lbls).set(gpu['mem_total_bytes'])
+				main.gauges['gpu_mem_used'].labels(**lbls).set(gpu['mem_used_bytes'])
+				main.gauges['gpu_temp_c'].labels(**lbls).set(gpu['temp_c'])
 		time.sleep(args.interval)
 
 if __name__ == "__main__":

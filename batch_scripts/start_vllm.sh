@@ -6,7 +6,7 @@
 #SBATCH -J vllm
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=128
-#SBATCH --gpus-per-task=4
+#SBATCH --gres=gpu:4
 #SBATCH --error=logs/vllm/vllm.err
 #SBATCH --output=logs/vllm/vllm.out
 
@@ -48,16 +48,24 @@ export RAY_CMD_WORKER="ray start --block --address=${HEAD_IPADDRESS}:${RANDOM_PO
 export TENSOR_PARALLEL_SIZE=4 # Set it to the number of GPU per node
 export PIPELINE_PARALLEL_SIZE=${SLURM_NNODES} # Set it to the number of allocated GPU nodes 
 
-# Hardware Metric Scraping
-pip install -r $REPO_SOURCE/requirements.txt
-srun --ntasks-per-node=1 --nodes=$SLURM_JOB_NUM_NODES python3 $REPO_SOURCE/src/scraper.py --service-name "$SLURM_JOB_NAME" &
+# Hardware Metric Scraping (GPU visibility without hogging GPUs; allow overlap)
+# pip install -r $REPO_SOURCE/requirements.txt
+SCRAPER_GPU_ARGS=""
+if [[ -n "${SLURM_GPUS_ON_NODE}" && "${SLURM_GPUS_ON_NODE}" != "0" ]]; then
+  SCRAPER_GPU_ARGS="--overlap --gpus-per-node=${SLURM_GPUS_ON_NODE} --gpu-bind=none"
+fi
+srun --ntasks-per-node=1 --nodes=$SLURM_JOB_NUM_NODES ${SCRAPER_GPU_ARGS} python3 $REPO_SOURCE/src/scraper.py --service-name "$SLURM_JOB_NAME" &
 
 # Start head node
 echo "Starting head node"
-srun -J "head ray node-step-%J" -N 1 --ntasks-per-node=1  -c $(( SLURM_CPUS_PER_TASK/2 )) -w ${HEAD_HOSTNAME} apptainer exec ${APPTAINER_ARGS} ${SIF_IMAGE} ${RAY_CMD_HEAD} &
+srun -J "head ray node-step-%J" -N 1 --ntasks-per-node=1  -c $(( (SLURM_CPUS_PER_TASK/2) - 1)) -w ${HEAD_HOSTNAME} apptainer exec ${APPTAINER_ARGS} ${SIF_IMAGE} ${RAY_CMD_HEAD} &
 sleep 10
-echo "Starting worker node"
-srun -J "worker ray node-step-%J" -N $(( SLURM_NNODES-1 )) --ntasks-per-node=1 -c ${SLURM_CPUS_PER_TASK} -x ${HEAD_HOSTNAME}  apptainer exec ${APPTAINER_ARGS} ${SIF_IMAGE} ${RAY_CMD_WORKER} &
+if [ $(( SLURM_NNODES-1 )) -gt 0 ]; then
+  echo "Starting worker node"
+  srun -J "worker ray node-step-%J" -N $(( SLURM_NNODES-1 )) --ntasks-per-node=1 -c $(( (SLURM_CPUS_PER_TASK) - 1)) -x ${HEAD_HOSTNAME} apptainer exec ${APPTAINER_ARGS} ${SIF_IMAGE} ${RAY_CMD_WORKER} &
+else
+  echo "Single node allocation; skipping worker launch"
+fi
 sleep 30
 # Start server on head to serve the model
 echo "Starting server"

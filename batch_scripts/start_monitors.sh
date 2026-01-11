@@ -19,7 +19,7 @@ set -x
 echo "SLURM_JOB_ID: ${SLURM_JOB_ID}"
 # Make sure the path to the SIF image is correct
 # Here, the SIF image is in the same directory as this script
-export GRAFANA_IMAGE=$REPO_SOURCE/utils/sif-images/grafana_latest.sif
+export GRAFANA_IMAGE=$REPO_SOURCE/utils/sif-images/grafana_12.3.0.sif
 export APPTAINER_ARGS="-B ${REPO_SOURCE}/utils/grafana_db:/var/lib/grafana"  
 export HEAD_HOSTNAME="$(hostname)"
 export HEAD_IPADDRESS="$(hostname --ip-address)"
@@ -46,7 +46,7 @@ apptainer run ${APPTAINER_ARGS} ${OTEL_COLLECTOR_IMAGE} &
 # Give collector a moment to start
 sleep 3
 
-export PROMETHEUS_IMAGE=$REPO_SOURCE/utils/sif-images/prometheus_latest.sif
+export PROMETHEUS_IMAGE=$REPO_SOURCE/utils/sif-images/prometheus_v3.9.1.sif
 export PROMETHEUS_DIR=${REPO_SOURCE}/utils/prometheus_dir
 export APPTAINER_ARGS="-B ${PROMETHEUS_DIR}:/prometheus -B ${PROMETHEUS_DIR}/prometheus.yaml:/etc/prometheus/prometheus.yml" # Mount the config directory
 export HEAD_HOSTNAME="$(hostname)"
@@ -72,7 +72,7 @@ EOF
 # ----------------------------------------
 
 # Hardware Metric Scraping
-pip install -r $REPO_SOURCE/requirements.txt
+# pip install -r $REPO_SOURCE/requirements.txt
 srun --ntasks-per-node=1 --nodes=$SLURM_JOB_NUM_NODES python3 $REPO_SOURCE/src/scraper.py --service-name "$SLURM_JOB_NAME" &
 
 echo "HEAD NODE: ${HEAD_HOSTNAME}"
