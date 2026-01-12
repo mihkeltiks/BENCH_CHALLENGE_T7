@@ -1,0 +1,68 @@
+@startuml
+
+' Vertical layout for poster columns
+skinparam ranksep 80
+skinparam nodesep 40
+
+' Style configuration
+skinparam classAttributeIconSize 0
+skinparam class {
+    BackgroundColor<<Abstract>> LightGray
+    BackgroundColor<<Concrete>> LightBlue
+    BorderColor Black
+    ArrowColor Black
+    FontSize 11
+}
+
+title Class Hierarchy
+
+' Abstract base class (simplified)
+abstract class SlurmServer <<Abstract>> {
+    job_id
+    ip_address
+    running
+    ready
+    __
+    start_job()
+    stop_job()
+    check_status()
+    {abstract} _check_readiness()
+}
+
+' Concrete implementations (name only)
+class VLLMServer <<Concrete>> {
+    benchmark_vllm()
+}
+
+class ChromaServer <<Concrete>> {
+    benchmark_chroma()
+}
+
+class MonitorServer <<Concrete>> {
+    update_prometheus()
+}
+
+class LustreServer <<Concrete>> {
+    benchmark_lustre()
+}
+
+' CLI orchestrator
+class CLI {
+    do_start()
+    do_check()
+    do_bench()
+}
+
+' Vertical inheritance
+SlurmServer <|-- VLLMServer
+SlurmServer <|-- ChromaServer
+SlurmServer <|-- MonitorServer
+SlurmServer <|-- LustreServer
+
+' CLI composition (horizontal to save vertical space)
+CLI o-right- VLLMServer
+CLI o-right- ChromaServer
+CLI o-right- MonitorServer
+CLI o-right- LustreServer
+
+@enduml
