@@ -3,6 +3,8 @@ Student Challenge 2025-2026 (Benchmarking AI Factories on MeluXina supercomputer
 
 Full project [Poster](https://github.com/mihkeltiks/BENCH_CHALLENGE_T7/blob/main/docs/BencmarksAI_Poster.pdf) 
 
+Team Members: Mihkel Tiks, Luca Leonzio, Jonah Holtmann
+
 # Instructions
 
 Run `source env.sh` in the root directory of this repository (where this README is) to set Slurm account names and some base variables that the scripts build on. It will also create a reservation on a GPU node with salloc so you can use Python. 
