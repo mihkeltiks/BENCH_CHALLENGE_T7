@@ -1,6 +1,8 @@
 # BENCH_CHALLENGE
 Student Challenge 2025-2026 (Benchmarking AI Factories on MeluXina supercomputer)
 
+Full project [Poster](https://github.com/mihkeltiks/BENCH_CHALLENGE_T7/blob/main/docs/BencmarksAI_Poster.pdf) 
+
 # Instructions
 
 Run `source env.sh` in the root directory of this repository (where this README is) to set Slurm account names and some base variables that the scripts build on. It will also create a reservation on a GPU node with salloc so you can use Python. 
@@ -84,6 +86,7 @@ Prometheus reads this data. Labels include the service name, job name, and job i
 
 In Grafana, Prometheus has to be configured as a data source. If both tunnels are active, this can be simply done by setting the prometheus IP to `localhost:9090`. After that, dashboards have to be generated. These can be imported as json files, which are provided in `utils/grafana-dashboards` for ChromaDB and vLLM. Then, the model that the vLLM serve was configured to serve has to be selected insterted to the `model_name` field as well.
 The Hardware Dashboard located in the same folder should display all metrics as soon as prometheus is configured in Grafana.
+
 
 ## Video
 Chroma benchmarks:
