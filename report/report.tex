@@ -24,7 +24,7 @@
 
     \begin{abstract}
 
-        We have created a microservice based AI Factory benchmarking suite that is able to efficiently capture and visualize key performance metrics to enable users to evaluate a given configurations performance on an HPC system. Through the use of Slurm and Docker we provide an easy to use framework that interfaces to commonly available tools and makes non-privileged installs possible. Further, the abstract SlurmServer class allows easy extendability for future tasks. The current set of benchmarks consists of IO500, ChromaDB, and vLLM.
+        We have created a microservice based AI Factory benchmarking suite that is able to efficiently capture and visualize key performance metrics to enable users to evaluate a given configurations performance on an HPC system. Through the use of Slurm and Apptainer we provide an easy to use framework that interfaces to commonly available tools and makes non-privileged installs possible. Further, the abstract SlurmServer class allows easy extendability for future tasks. The current set of benchmarks consists of IO500, ChromaDB, and vLLM.
 
     \end{abstract}
 
@@ -72,7 +72,8 @@
     As mentioned before, we established a regular bi-weekly meeting schedule to ensure effective collaboration and steady progress.
     Further, we set up a poll for possible meeting times, to make extraordinary meeting planning easier and help us to find the best timings to work together.
     Further, we went with a full commitment philosophy. Once a meeting time is set, we all commit, to make sure that nobody erroneously misses a meeting invitation.
-    This let us reduce the overall amount of meetings, since there is minimal need to reschedule or repeat a meeting. Further, this also ensures that the meetings start without delay and that we could be productive right from the start of each meeting.
+    This let us reduce the overall amount of meetings, since there is minimal need to reschedule or repeat a meeting. Further, this also ensures that the meetings start without delay and that we could be productive right from the start of each meeting. 
+    In each meeting, progress and issues were shared and discussed. In case a team member had any stopping issues they could not resolve themselves, help from other team members was provided, which helped us to overcome blockers and ensure steady progress. At the end of the meetings, we set clear action items and goals for the next meeting.
 
 
     \section{Tools and Software}
@@ -90,36 +91,36 @@
 
     A simplified UML diagram of the architectural design is shown in Figure~\ref{fig:uml_diagram}..
     The user interacts with the benchmark suite through a command-line interface (CLI), which provides a simple and intuitive way to configure and run benchmarks, as well as to view results and metrics directly from the terminal.
-    For this, the user needs a remote ssh connection since the CLI expects to be run on a node with direct access to the Slurm workload management.
+    For this, the user needs an SSH connection since the CLI expects to be run on a node with direct access to the Slurm workload management.
 
-    To make running the benchmarks as user-friendly as possible, we decided to use a combination of Slurm, Prometheus, Grafana, OpenTelemetry, and Docker.
-    Since Slurm and Docker are usually available on HPC systems as standard tools, this ensures easy deployment and onboarding for users (and developers) of the benchmark suite.
+    To make running the benchmarks as user-friendly as possible, we decided to use a combination of Slurm, Prometheus, Grafana, OpenTelemetry, and Apptainer.
+    Since Slurm and Apptainer are usually available on HPC systems as standard tools, this ensures easy deployment and onboarding for users (and developers) of the benchmark suite.
 
     \subsection{Orchestration and Distribution}
     The main software tool for orchestration is Slurm, the popular workload management used on many HPC systems, including MeluXina.
     Slurm takes care of the workload distribution across the cluster, so there are no additional configuration steps to ensure benchmarks are not running with potentially invalid or duplicated resources.
     We interface to Slurm through the submission of normal Slurm job scripts.
-    For our benchmarks, we supply relatively simple job scripts.
+    For our benchmarks, we supply baseline scripts for the instantiation of each server.
     
     Installation of the benchmark suite is handled through an installation script.
-    This script expects only an internet connection and Docker to be available and should be run in advance of the first CLI startup. For file system benchmarking, a working compiler and a standard set of development tools are required, which may require the user to load some modules depending on their cluster configuration.
-    Within the installation, the dependencies and used containers are fixed to to ensure a stable and consistent environment for the benchmarks.
+    This script expects only an internet connection and Apptainer to be available and should be run in advance of the first CLI startup. For file system benchmarking, a working compiler and a standard set of development tools are required, which may require the user to load some modules depending on their cluster configuration. For MeluXina, the installation script automatically loads the modules necessary for compilation.
+    Within the installation, the versions of the dependencies and used containers are fixed to to ensure a stable and consistent environment for the benchmarks.
     The installation script also takes care of setting up the Prometheus and Grafana containers, which are used for monitoring and visualization of the benchmark results.
 
     \subsection{Monitoring and Visualization}
-    For the monitoring and data collection, we use Prometheus.
+    For the monitoring and data collection, we use Prometheus as well as OpenTelemetry Collector.
     This is flexible to use and allows us to easily collect and store the performance metrics of the benchmarks as well as the system metrics of the used nodes.
-    Conceptually, once a job is started it makes its IP address known to the CLI which updates the Prometheus configuration so that the data is read.
+    Conceptually, once a job is started it makes its IP address known to the CLI which updates the Prometheus configuration and reloads the Prometheus server, so that it can start scraping the metrics of the job.
     Also, we aggregate the metrics of all nodes attached to a benchmark job, so that there is less individual configuration and possibility for networking issues.
     Prometheus pulls these aggregations, so that there is no overhead introduced to a benchmark by the need of pushing some metrics over the network.
 
     For the visualization of the collected metrics, we use Grafana.
     Grafana lets us create custom dashboards to visualize the performance and system metrics in a clear and job specific way.
     This means that users can easily identify the job through its Slurm job ID and then view the metrics.
-    For this purpose we use an exported Grafana dashboard, replacing the necessary variables and making it available to users through the CLI.
+    For this purpose we use an exported Grafana dashboard, replacing the necessary variables and making it available to users through the CLI. Grafana dashboards for each benchmark are stored in the GitHub repository, so that users can also easily customize them or create new ones as needed.
 
     Both Prometheus and Grafana are started through the CLI, and doing so toggles the hardware metric collection automatically.
-    Once up and running, the user is given two ssh port forwarding commmands to be able to access Grafana and Prometheus from their local machine during the benchmarking process.
+    Once up and running, the user is given two ssh port forwarding commmands to be able to access Grafana and Prometheus from their local machine during the benchmarking process. This way, the user's machine does not have to handle the overhead of running the monitoring and visualization tools, while still giving them easy access to the collected data and visualizations.
     Also available through the CLI is a command to export and save the collected data and logs to a compressed .zip archive, which can be used for later analysis and comparison of the benchmark results.
 
     \subsubsection{Hardware Metric Gathering}
@@ -151,17 +152,17 @@
     By default, the benchmark runs a predefined set of inference tasks, which can be easily extended by users to include custom tasks and models.
     To pull a model the user needs to initialize HF\_TOKEN in their environment, which is used to pull the corresponding model from Hugging Face.
     Therefor, the benchmark triggers the two-step launch process of SlurmServer, indicating running once the Slurm job allocation is launched and then indicating setup complete once the vLLM server is up and running and ready to receive inference requests.
-    During the start on the CLI the user can specify how many nodes to use for the benchmark, specify a distributed server list and specify the model to be used for inference.
-    Throguh the wide variety of configuration settings, users can easily test and compare the performance of different models and configurations on MeluXina, which can provide valuable insights into the capabilities and limitations of the system for AI workloads.
+    During the start on the CLI the user can specify how many nodes to use for the benchmark, specify a distributed server list and specify the model to be used for inference. The base benchmark that was included in from the benchmark set of the official vLLM repository and is designed for structured outputs \cite{structured}, which is a common use case for LLM inference. Adjusting the framework to run other benchmarks from the vLLM repository or custom benchmarks is straightforward, so users can easily test different inference scenarios as needed.
+    Through the wide variety of configuration settings, users can easily test and compare the performance of different models and configurations on MeluXina, which can provide valuable insights into the capabilities and limitations of the system for AI workloads. 
     From our tests, the vLLM benchmark scales well to many nodes and inference servers.
     
     To interface with Prometheus, we use vLLM's built-in metrics endpoint, only pointing Prometheus to the master node.
 
     \subsubsection{Vector Storage}
     The vector storage benchmark uses ChromaDB, a popular vector storage data base, to evaluate MeluXina's capabilities.
-    Similar to vLLM it sets up a ChromaDB server through docker and--once started--signals to the CLI that benchmarking can commence.
+    Similar to vLLM it sets up a ChromaDB server through Apptainer and--once started--signals to the CLI that benchmarking can commence.
     It offers a wide variety of telemetrics through its own metrics endpoint, which is scraped by Prometheus and made available as a Grafana Dashboard.
-    The user can configure the ressources and setup for the benchmarking run.
+    The user can configure the resources and setup for the benchmarking run.
     The benchmark scales well to many nodes, enabling the user to accurately study MeluXina's performance for their given workload size.
 
     \subsubsection{File System Performance}
@@ -183,7 +184,7 @@
     Working on this challenge has been a valuable learning experience for our team, providing insights into the complexities of benchmarking AI factories on HPC systems and the importance of effective collaboration and communication in a team setting.
     Working with the extensive and multi-faceted soft- and hardware infrastructure of MeluXina has been a great opportunity to gain hands-on experience.
     Being able to apply techniques and tools we have learned during our classes to a system has helped to solidify our understanding and gain a feeling for the practical implications of performance engineering and benchmarking.
-    Getting to run large node allocations has taught us how to efficiently handle compute ressources, so that we do not block large partitions for setup tasks.
+    Getting to run large node allocations has taught us how to efficiently handle compute resources, so that we do not block large partitions for setup tasks.
 
     Through working as a team each member has been able to both contribute their own strengths and also step out of their comfort zone to learn new skills and gain experience in areas they were less familiar with, which has been a great opportunity for personal growth and development.
     A key takeaway is the importance of clear and effective communication to avoid errors previously encountered by others and to ensure that all team members are on the same page regarding the project goals, tasks, and progress.
