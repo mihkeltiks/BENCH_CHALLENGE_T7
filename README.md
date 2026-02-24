@@ -3,6 +3,8 @@ Student Challenge 2025-2026 (Benchmarking AI Factories on MeluXina supercomputer
 
 Full project [Poster](https://github.com/mihkeltiks/BENCH_CHALLENGE_T7/blob/main/docs/BencmarksAI_Poster.pdf) 
 
+Project Paper: [Report](https://github.com/user-attachments/files/25520696/report.pdf)
+
 Team Members: [Mihkel Tiks](https://github.com/mihkeltiks), [Luca Leonzio](https://github.com/LucaLeonx), [Jonah Holtmann](https://github.com/katercross)
 
 # Instructions
