@@ -3,11 +3,11 @@
 \usepackage[T1]{fontenc}
 \usepackage[english]{babel}
 
-\usepackage{amsmath}
+% \usepackage{amsmath}
 \usepackage{graphicx}
-\usepackage{enumitem}
-\usepackage{todonotes}
-\usepackage{subcaption}
+% \usepackage{enumitem}
+% \usepackage{todonotes}
+% \usepackage{subcaption}
 \usepackage[hidelinks]{hyperref}
 
 \begin{document}
@@ -29,7 +29,7 @@
     \end{abstract}
 
     \begin{IEEEkeywords}
-        HPC, Benchmarking, IO500, Chroma, vLLM
+        HPC, Benchmarking, IO500, ChromaDB, vLLM
     \end{IEEEkeywords}
 
     \section{Introduction}
@@ -37,7 +37,7 @@
     The students should become familiar with this emerging type of compute infrastructure on systems across the european union (EU).
 
     The Challenge is split into three phases: Onboarding, Prototyping, and Evaluation.
-    Our teams' work is documented in a GitHub repository \cite{Team7}, which includes the codebase, documentation, and version control for our project.
+    Our teams' work is documented in a GitHub repository~\cite{Team7}, which includes the codebase, documentation, and version control for our project.
     The end goal of the challenge is to provide a benchmark suite of the key AI factory components, including vector storage, LLM inference, and HPC performance.
 
     \section{Team Collaboration and Dynamics}
@@ -51,13 +51,17 @@
     Further, we put an emphasis on ensuring that all team members equally contributed to the project design and implementation and that all members were involved in integration and testing.
     This ensures everyone has a good understanding of the entire benchmark suite and let us validate our work together.
     
-    With the challenge consisting of three main areas of benchmarking (AI capabilities, vector storage, and HPC performance), we decided to split the responsibilities into these areas. 
-    However, being assigned to a specific area did not mean that team members only worked on that area, but rather that they took ownership of it while also collaborating on the overall integration and testing of the benchmark suite.
+    With the challenge consisting of three main areas of benchmarking (AI capabilities, vector storage, and HPC performance), we decided to split the responsibilities into these areas.
+    Specifically, Mihkel Tiks took the lead on the AI inference benchmark, Luca Leonzio took the lead on the vector storage benchmark, and Jonah Holtmann took the lead on the HPC performance benchmark.
+    For the remaining tasks, Mihkel Tiks created the baseline Prometheus and Grafana stack for visualization and Jonah Holtmann the hardware metric gathering service.
+    
+    However, being assigned to a specific area did not mean that team members only worked on that area, but rather that they took ownership of it while also collaborating on the overall integration and testing of the benchmark suite and the creation of the CLI.
+    Each member then took care of integrating the metric collection and visualization for their benchmark.
 
     \subsection{Communication}
     To enable open and effective communication among team members, we established three platforms for communication and collaboration: a GitHub repository, a Discord group, and an instant messaging channel.
 
-    The GitHub repository\cite{Team7} serves as the central hub for our codebase, documentation, and version control.
+    The GitHub repository~\cite{Team7} serves as the central hub for our codebase, documentation, and version control.
     We employ the GitHub Issue Tracker as an effective task management and progress tracking tool, which allows us to create and assign tasks, set deadlines, and track the progress of each task.
     Also, this ensures that all team members are aware of the current status of the project and can easily access the necessary information and resources.
     The issues are assigned according to the initial task distribution, but team members can also take on additional tasks as needed, which allows for flexibility and adaptability in our workflow.
@@ -121,7 +125,7 @@
 
     Both Prometheus and Grafana are started through the CLI, and doing so toggles the hardware metric collection automatically.
     Once up and running, the user is given two ssh port forwarding commmands to be able to access Grafana and Prometheus from their local machine during the benchmarking process. This way, the user's machine does not have to handle the overhead of running the monitoring and visualization tools, while still giving them easy access to the collected data and visualizations.
-    Also available through the CLI is a command to export and save the collected data and logs to a compressed .zip archive, which can be used for later analysis and comparison of the benchmark results.
+    Also available through the CLI is a command to export and save the collected data and logs to a compressed zip archive, which can be used for later analysis and comparison of the benchmark results.
 
     \subsubsection{Hardware Metric Gathering}
 
@@ -152,7 +156,7 @@
     By default, the benchmark runs a predefined set of inference tasks, which can be easily extended by users to include custom tasks and models.
     To pull a model the user needs to initialize HF\_TOKEN in their environment, which is used to pull the corresponding model from Hugging Face.
     Therefor, the benchmark triggers the two-step launch process of SlurmServer, indicating running once the Slurm job allocation is launched and then indicating setup complete once the vLLM server is up and running and ready to receive inference requests.
-    During the start on the CLI the user can specify how many nodes to use for the benchmark, specify a distributed server list and specify the model to be used for inference. The base benchmark that was included is from the benchmark set of the official vLLM repository and is designed for structured outputs~\cite{structured}, which is a common use case for LLM inference. Adjusting the framework to run other benchmarks from the vLLM repository or custom benchmarks is straightforward, so users can easily test different inference scenarios as needed.
+    During the start on the CLI the user can specify how many nodes to use for the benchmark, specify a distributed server list and specify the model to be used for inference. The base benchmark that was included is from the benchmark set of the official vLLM repository and is designed for structured outputs~\cite{Structured}, which is a common use case for LLM inference. Adjusting the framework to run other benchmarks from the vLLM repository or custom benchmarks is straightforward, so users can easily test different inference scenarios as needed.
     Through the wide variety of configuration settings, users can easily test and compare the performance of different models and configurations on MeluXina, which can provide valuable insights into the capabilities and limitations of the system for AI workloads. 
     From our tests, the vLLM benchmark scales well to many nodes and inference servers.
     
@@ -160,7 +164,7 @@
 
     \subsubsection{Vector Storage}
     The vector storage benchmark uses ChromaDB, a popular vector storage data base, to evaluate MeluXina's capabilities.
-    Similar to vLLM it sets up a ChromaDB server through Apptainer and--once started--signals to the CLI that benchmarking can commence.
+    Similar to vLLM it sets up a ChromaDB server through Apptainer and---once started---signals to the CLI that benchmarking can commence.
     It offers a wide variety of telemetrics through its own metrics endpoint, which is scraped by Prometheus and made available as a Grafana Dashboard.
     The user can configure the resources and setup for the benchmarking run.
     The benchmark scales well to many nodes, enabling the user to accurately study MeluXina's performance for their given workload size.
